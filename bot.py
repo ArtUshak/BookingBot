@@ -107,8 +107,6 @@ def format_timetable(timetable_data):
         result += "\n"
     return result
 
-bot.
-
 @bot.message_handler(commands=["start", "help"])
 def process_cmd_help(message):
     bot.send_message(message.chat.id, message_help)
