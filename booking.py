@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 import json
-#import time
-from botlog import *
 from datetime import *
+from botlog import *
 
 admins = []
 whitelist = []
@@ -14,6 +13,8 @@ BAD_DATE_FORMAT = 1
 NO_ACCESS = 2
 BAD_INPUT = 3
 TIME_OCCUPIED = 4
+TIME_PASSED = 5
+BOOKING_NOT_FOUND = 6
 MISC_ERROR = -1
 
 minute_treshold = 15
@@ -61,7 +62,7 @@ def save_whitelist(filename):
     try:
         with open(filename, 'w') as whitelist_file:
             for whitelist_item in whitelist:
-                whitelist_file.write(str(whitelist_item) + "\r\n")
+                whitelist_file.write(str(whitelist_item) + "\n")
     except FileNotFoundError:
         log('Can not find whitelist file', 'ERROR')
     except BufferError:
@@ -117,7 +118,7 @@ def is_free_time(time_data, duration):
     for booking_data_item in booking_data:
         if booking_data_item[0] == time_data:
             return False
-        if (booking_data_item[0] < (time_data + duration)) and ((booking_data_item[0] + booking_data_item[1]) < time_data):
+        if (booking_data_item[0] < (time_data + duration)) and ((booking_data_item[0] + booking_data_item[1]) > time_data):
             return False
     return True
 
@@ -130,7 +131,37 @@ def book(user_id, time_data, duration, description):
         return NO_ACCESS
     if not is_free_time(time_data, duration):
         return TIME_OCCUPIED
-    booking_data += [[time_data, duration, description]]
+    if time_data <= (datetime.now() - time_axis).total_seconds():
+        return TIME_PASSED
+    booking_data += [[time_data, duration, description, user_id]]
+    booking_data.sort(key=lambda booking_data_item: booking_data_item[0])
+    return EVERYTHING_OK
+
+def get_booking(time_data):
+    global booking_data
+    for i in range(len(booking_data)):
+        booking_data_item = booking_data[i]
+
+        if booking_data_item[0] == time_data:
+            return i
+        if (booking_data_item[0] < (time_data)) and ((booking_data_item[0] + booking_data_item[1]) > time_data):
+            return i
+    return -1
+
+def unbook(user_id, time_data, force=False):
+    global booking_data
+    if not is_in_whitelist(user_id):
+        return NO_ACCESS
+    if force:
+        if not is_admin(user_id):
+            return NO_ACCESS
+    if not force:
+        if time_data <= (datetime.now() - time_axis).total_seconds():
+            return TIME_PASSED
+    booking_id = get_booking(time_data)
+    if booking_id < 0:
+        return BOOKING_NOT_FOUND
+    booking_data.pop(booking_id)
     booking_data.sort(key=lambda booking_data_item: booking_data_item[0])
     return EVERYTHING_OK
 

@@ -7,14 +7,16 @@ from datetime import *
 import booking
 from botlog import *
 
-message_bad_input = "Некорректный запрос."
 message_bad_cmd = "Команда не найдена. Для получения списка команд введите /help."
+message_indev = "Данная функция находится в разработке."
+message_operation_ok = "Операция успешно произведена."
+message_bad_input = "Некорректный запрос."
 message_bad_date_format = "Некорректно введена дата."
 message_no_access = "Нет доступа."
 message_misc_error = "Неизвестная ошибка."
-message_operation_ok = "Операция успешно произведена."
-message_indev = "Данная функция находится в разработке."
 message_time_occupied = "Время занято."
+message_time_passed = "Время уже прошло."
+message_booking_not_found = "Событие не найдено."
 
 message_timetable_header = "Расписание:"
 message_timetable_row = "%s - %s: %s"
@@ -33,7 +35,7 @@ def get_help():
     return help_text
 
 message_help = get_help()
-log(message_help)
+log("Help message:\n" + message_help)
 
 data_file = "../bookingbot-data/booking.json"
 
@@ -91,6 +93,10 @@ def get_error_message(error_code, if_ok=None):
         return message_bad_input
     elif error_code == booking.TIME_OCCUPIED:
         return message_time_occupied
+    elif error_code == booking.TIME_PASSED:
+        return message_time_passed
+    elif error_code == booking.BOOKING_NOT_FOUND:
+        return message_booking_not_found
     else:
         return message_misc_error
 
@@ -100,6 +106,8 @@ def format_timetable(timetable_data):
         result += message_timetable_row % (get_datetime(timetable_item[0]).strftime("%H:%M"), get_datetime(timetable_item[0] + timetable_item[1]).strftime("%H:%M"), timetable_item[2])
         result += "\n"
     return result
+
+bot.
 
 @bot.message_handler(commands=["start", "help"])
 def process_cmd_help(message):
@@ -126,6 +134,60 @@ def process_cmd_book(message):
         log("/book result is: %s" % cmd_result)
     except Exception as exception:
         log("Error ocurred when executing comand /book", "USERERR")
+        log(exception.args, "USERERR")
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        for line in lines:
+            log(line, "USERERR")
+    bot.send_message(message.chat.id, get_error_message(cmd_result))
+
+@bot.message_handler(commands=["unbook"])
+def process_cmd_unbook(message):
+    sender_id = message.from_user.id
+    log("Called /unbook from user %s (%s)" % (sender_id, message.from_user.username))
+    if (len(message.text.split()) < 3):
+        bot.send_message(message.chat.id, message_bad_input)
+        return
+    words = message.text.split(" ", 3)
+    cmd_result = booking.MISC_ERROR
+    try:
+        log("Called /unbook for date %s, time %s" % (words[1], words[2]))
+        try:
+            time = booking.process_date_time(words[1], words[2])
+        except ValueError:
+            cmd_result = booking.BAD_INPUT
+        else:
+            cmd_result = booking.unbook(sender_id, time)
+        log("/unbook result is: %s" % cmd_result)
+    except Exception as exception:
+        log("Error ocurred when executing comand /unbook", "USERERR")
+        log(exception.args, "USERERR")
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        for line in lines:
+            log(line, "USERERR")
+    bot.send_message(message.chat.id, get_error_message(cmd_result))
+
+@bot.message_handler(commands=["unbook_force"])
+def process_cmd_unbook_force(message):
+    sender_id = message.from_user.id
+    log("Called /unbook_force from user %s (%s)" % (sender_id, message.from_user.username))
+    if (len(message.text.split()) < 3):
+        bot.send_message(message.chat.id, message_bad_input)
+        return
+    words = message.text.split(" ", 3)
+    cmd_result = booking.MISC_ERROR
+    try:
+        log("Called /unbook_force for date %s, time %s" % (words[1], words[2]))
+        try:
+            time = booking.process_date_time(words[1], words[2], force=True)
+        except ValueError:
+            cmd_result = booking.BAD_INPUT
+        else:
+            cmd_result = booking.unbook(sender_id, time)
+        log("/unbook_force result is: %s" % cmd_result)
+    except Exception as exception:
+        log("Error ocurred when executing comand /unbook_force", "USERERR")
         log(exception.args, "USERERR")
         exc_type, exc_value, exc_traceback = sys.exc_info()
         lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
@@ -194,3 +256,4 @@ def process_input(message):
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
+
