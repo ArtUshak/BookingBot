@@ -23,7 +23,7 @@ time_axis = datetime(1970, 1, 1)
 def load_admins(filename):
     global admins
     try:
-        with open(filename, 'r') as admins_file:
+        with open(filename, 'r', encoding="utf-8") as admins_file:
             for line in admins_file:
                 data = line.strip()
                 if len(data) == 0:
@@ -45,7 +45,7 @@ def load_admins(filename):
 def load_whitelist(filename):
     global whitelist
     try:
-        with open(filename, 'r') as whitelist_file:
+        with open(filename, 'r', encoding="utf-8") as whitelist_file:
             for line in whitelist_file:
                 data = line.strip()
                 if len(data) == 0:
@@ -60,7 +60,7 @@ def load_whitelist(filename):
 def save_whitelist(filename):
     global whitelist
     try:
-        with open(filename, 'w') as whitelist_file:
+        with open(filename, 'w', encoding="utf-8") as whitelist_file:
             for whitelist_item in whitelist:
                 whitelist_file.write(str(whitelist_item) + "\n")
     except FileNotFoundError:
@@ -88,7 +88,7 @@ def is_in_whitelist(user_id):
 
 def load_data_from_file(filename):
     try:
-        with open(filename, 'r') as data_file:
+        with open(filename, 'r', encoding="utf-8") as data_file:
             return json.load(data_file)
     except Exception:
         return None
@@ -108,7 +108,7 @@ def save_data(user_id, filename, whitelist_filename):
     if not is_admin(user_id):
         return NO_ACCESS
     booking_data.sort(key=lambda booking_data_item: booking_data_item[0])
-    with open(filename, 'w') as data_file:
+    with open(filename, 'w', encoding="utf-8") as data_file:
         json.dump(booking_data, data_file)
     save_whitelist(whitelist_filename)
     return EVERYTHING_OK
@@ -165,10 +165,16 @@ def unbook(user_id, time_data, force=False):
     booking_data.sort(key=lambda booking_data_item: booking_data_item[0])
     return EVERYTHING_OK
 
-def get_timetable(user_id):
+def get_timetable(user_id, start_time_data=-1, end_time_data=-1):
     global booking_data
     result = [EVERYTHING_OK]
     for booking_data_item in booking_data:
+        if start_time_data >= 0:
+            if (booking_data_item[0] + booking_data_item[1]) < start_time_data:
+                continue
+        if end_time_data >= 0:
+            if booking_data_item[0] > end_time_data:
+                continue
         result += [booking_data_item]
     return result
 

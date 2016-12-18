@@ -19,12 +19,13 @@ message_time_passed = "Время уже прошло."
 message_booking_not_found = "Событие не найдено."
 
 message_timetable_header = "Расписание:"
+message_timetable_date_row = "День %s"
 message_timetable_row = "%s - %s: %s"
 
 def get_help():
     help_text = ""
     try:
-        with open("help.txt") as help_file:
+        with open("help.txt", encoding="utf-8") as help_file:
             help_text = help_file.read()
     except FileNotFoundError:
         log("Can not find help file", "ERROR")
@@ -36,6 +37,21 @@ def get_help():
 
 message_help = get_help()
 log("Help message:\n" + message_help)
+
+def get_contactlist():
+    help_text = ""
+    try:
+        with open("../bookingbot-data/contacts.txt", encoding="utf-8") as contactlist_file:
+            contactlist_text = contactlist_file.read()
+    except FileNotFoundError:
+        log("Can not find contact list file", "ERROR")
+    except BufferError:
+        log("Buffer error in contact list file", "ERROR")
+    except EOFError:
+        log("EOF error in contact list file", "ERROR")
+    return contactlist_text
+contact_list = get_contactlist()
+log("Contact list:\n" + contact_list)
 
 data_file = "../bookingbot-data/booking.json"
 
@@ -55,7 +71,7 @@ log("Admins: %s" % str(booking.admins))
 def get_token(filename):
     token = None
     try:
-        with open(filename) as token_file:
+        with open(filename, encoding="utf-8") as token_file:
             token = token_file.readline().strip()
     except FileNotFoundError:
         log("Can not find token file", "ERROR")
@@ -72,7 +88,7 @@ bot = telebot.TeleBot(token)
 log("Bot created.")
 
 def get_timedelta(seconds):
-    return timedelta(days=seconds%3600, seconds=seconds)
+    return timedelta(days=seconds//86400, seconds=seconds%86400)
 
 def get_datetime(seconds):
     return booking.time_axis + get_timedelta(seconds)
@@ -101,8 +117,14 @@ def get_error_message(error_code, if_ok=None):
         return message_misc_error
 
 def format_timetable(timetable_data):
+    date_str = None
     result = message_timetable_header + "\n"
     for timetable_item in timetable_data:
+        curr_date_str = get_datetime(timetable_item[0]).strftime("%Y-%m-%d")
+        if date_str != curr_date_str:
+            date_str = curr_date_str
+            result += message_timetable_date_row % date_str
+            result += "\n"
         result += message_timetable_row % (get_datetime(timetable_item[0]).strftime("%H:%M"), get_datetime(timetable_item[0] + timetable_item[1]).strftime("%H:%M"), timetable_item[2])
         result += "\n"
     return result
@@ -115,7 +137,7 @@ def process_cmd_help(message):
 def process_cmd_book(message):
     sender_id = message.from_user.id
     log("Called /book from user %s (%s)" % (sender_id, message.from_user.username))
-    if (len(message.text.split()) < 5):
+    if len(message.text.split()) < 5:
         bot.send_message(message.chat.id, message_bad_input)
         return
     words = message.text.split(" ", 5)
@@ -143,7 +165,7 @@ def process_cmd_book(message):
 def process_cmd_unbook(message):
     sender_id = message.from_user.id
     log("Called /unbook from user %s (%s)" % (sender_id, message.from_user.username))
-    if (len(message.text.split()) < 3):
+    if len(message.text.split()) < 3:
         bot.send_message(message.chat.id, message_bad_input)
         return
     words = message.text.split(" ", 3)
@@ -170,7 +192,7 @@ def process_cmd_unbook(message):
 def process_cmd_unbook_force(message):
     sender_id = message.from_user.id
     log("Called /unbook_force from user %s (%s)" % (sender_id, message.from_user.username))
-    if (len(message.text.split()) < 3):
+    if len(message.text.split()) < 3:
         bot.send_message(message.chat.id, message_bad_input)
         return
     words = message.text.split(" ", 3)
@@ -197,9 +219,16 @@ def process_cmd_unbook_force(message):
 def process_cmd_settask(message):
     sender_id = message.from_user.id
     log("Called /timetable from user %s (%s)" % (sender_id, message.from_user.username))
+    start_time = (datetime.today() - booking.time_axis).total_seconds()
+    end_time = -1
+    if len(message.text.split()) >= 2:
+        words = message.text.split(" ", 2)
+        if words[1].lower() == "today":
+            end_time = (datetime.today() - booking.time_axis).total_seconds() + 86400
     cmd_result = booking.MISC_ERROR
+    start_time = (datetime.today() - booking.time_axis).total_seconds()
     try:
-        cmd_result_list = booking.get_timetable(sender_id)
+        cmd_result_list = booking.get_timetable(sender_id, start_time, end_time)
         cmd_result = cmd_result_list[0]
     except Exception as exception:
         log("Error ocurred when executing comand /timetable", "USERERR")
@@ -235,6 +264,10 @@ def process_cmd_logmyinfo(message):
     sender_id = message.from_user.id
     log("Called /logmyinfo from user %s (%s)" % (sender_id, message.from_user.username))
 
+@bot.message_handler(commands=["contactlist"])
+def process_cmd_help(message):
+    bot.send_message(message.chat.id, contact_list)
+
 """
 @bot.message_handler(content_types=["text"])
 def process_input(message):
@@ -254,4 +287,3 @@ def process_input(message):
 
 if __name__ == "__main__":
     bot.polling(none_stop=True)
-
