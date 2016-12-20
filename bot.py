@@ -199,11 +199,11 @@ def process_cmd_unbook_force(message):
     try:
         log("Called /unbook_force for date %s, time %s" % (words[1], words[2]))
         try:
-            time = booking.process_date_time(words[1], words[2], force=True)
+            time = booking.process_date_time(words[1], words[2])
         except ValueError:
             cmd_result = booking.BAD_INPUT
         else:
-            cmd_result = booking.unbook(sender_id, time)
+            cmd_result = booking.unbook(sender_id, time, force=True)
         log("/unbook_force result is: %s" % cmd_result)
     except Exception as exception:
         log("Error ocurred when executing comand /unbook_force", "USERERR")
