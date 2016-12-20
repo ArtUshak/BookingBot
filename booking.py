@@ -161,6 +161,9 @@ def unbook(user_id, time_data, force=False):
     booking_id = get_booking(time_data)
     if booking_id < 0:
         return BOOKING_NOT_FOUND
+    if not force:
+        if booking_data[booking_id][3] != user_id:
+            return NO_ACCESS
     booking_data.pop(booking_id)
     booking_data.sort(key=lambda booking_data_item: booking_data_item[0])
     return EVERYTHING_OK

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import telebot
-import pickle
 import sys
 import traceback
 from datetime import *
