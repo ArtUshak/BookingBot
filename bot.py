@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import telebot
+import telebot.types
 import sys
 import traceback
 from datetime import *
@@ -20,6 +21,12 @@ message_booking_not_found = "Событие не найдено."
 message_timetable_header = "Расписание:"
 message_timetable_date_row = "День %s"
 message_timetable_row = "%s - %s: %s"
+
+cmd_text_timetable = "Получить расписание"
+cmd_text_timetable_today = "Получить на сегодня"
+cmd_text_timetable_book = "Забронировать аудиторию"
+cmd_text_timetable_unbook = "Отменить бронирование"
+cmd_text_contactlist = "Контакты"
 
 def get_help():
     help_text = ""
@@ -131,6 +138,26 @@ def format_timetable(timetable_data):
 @bot.message_handler(commands=["start", "help"])
 def process_cmd_help(message):
     bot.send_message(message.chat.id, message_help)
+    send_cmd_keyboard(message.chat.id, "Бот в процессе тестирования. Приносим извинения за неудобства.")
+
+def send_cmd_keyboard(chat_id, text):
+    keyboard = telebot.types.InlineKeyboardMarkup()
+    keyboard.add(telebot.types.InlineKeyboardButton(text=cmd_text_timetable, callback_data="timetable:%s" % str(chat_id)))
+    keyboard.add(telebot.types.InlineKeyboardButton(text=cmd_text_timetable_today, callback_data="timetable_today:%s" % str(chat_id)))
+    keyboard.add(telebot.types.InlineKeyboardButton(text=cmd_text_timetable_book, callback_data="book:%s" % str(chat_id)))
+    keyboard.add(telebot.types.InlineKeyboardButton(text=cmd_text_timetable_unbook, callback_data="unbook:%s" % str(chat_id)))
+    keyboard.add(telebot.types.InlineKeyboardButton(text=cmd_text_contactlist, callback_data="contactlist:%s" % str(chat_id)))
+    bot.send_message(chat_id, text, reply_markup=keyboard)
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_inline(call):
+    tokens = call.data.split(":")
+    if len(tokens) < 2:
+        return
+    if tokens[0] == "timetable":
+        process_button_timetable(int(tokens[1]), call.message.chat.id)
+    if tokens[0] == "contactlist":
+        process_button_contactlist(int(tokens[1]), call.message.chat.id)
 
 @bot.message_handler(commands=["book"])
 def process_cmd_book(message):
@@ -214,8 +241,29 @@ def process_cmd_unbook_force(message):
             log(line, "USERERR")
     bot.send_message(message.chat.id, get_error_message(cmd_result))
 
+def process_button_timetable(sender_id, chat_id):
+    log("Called /timetable from user %s" % (sender_id))
+    start_time = (datetime.today() - booking.time_axis).total_seconds()
+    end_time = -1
+    cmd_result = booking.MISC_ERROR
+    start_time = (datetime.today() - booking.time_axis).total_seconds()
+    try:
+        cmd_result_list = booking.get_timetable(sender_id, start_time, end_time)
+        cmd_result = cmd_result_list[0]
+    except Exception as exception:
+        log("Error ocurred when executing comand /timetable", "USERERR")
+        log(exception.args, "USERERR")
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        lines = traceback.format_exception(exc_type, exc_value, exc_traceback)
+        for line in lines:
+            log(line, "USERERR")
+    timetable = []
+    if cmd_result == booking.EVERYTHING_OK:
+        timetable = format_timetable(cmd_result_list[1:])
+    bot.send_message(chat_id, get_error_message(cmd_result, if_ok=timetable))
+
 @bot.message_handler(commands=["timetable"])
-def process_cmd_settask(message):
+def process_cmd_timetable(message):
     sender_id = message.from_user.id
     log("Called /timetable from user %s (%s)" % (sender_id, message.from_user.username))
     start_time = (datetime.today() - booking.time_axis).total_seconds()
@@ -262,6 +310,9 @@ def process_cmd_save(message):
 def process_cmd_logmyinfo(message):
     sender_id = message.from_user.id
     log("Called /logmyinfo from user %s (%s)" % (sender_id, message.from_user.username))
+
+def process_button_contactlist(sender_id, chat_id):
+    bot.send_message(chat_id, contact_list)
 
 @bot.message_handler(commands=["contactlist"])
 def process_cmd_help(message):
