@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 import logging
+
 import telebot
 import telebot.types
+
 import booking
 from botsettings import *
+from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
+                        BotBadInput, BotTimeOccupied, BotTimePassed,
+                        BotBookingNotFound)
 
 
 logger = logging.getLogger('bot')
@@ -37,8 +42,8 @@ logger.info('Starting bot...')
 message_help = get_help(help_file)
 logger.info('Help message:\n' + message_help)
 
-contact_list = get_contactlist(contactlist_file)
-logger.info('Contact list:\n' + contact_list)
+message_contact_list = get_contactlist(contactlist_file)
+logger.info('Contact list:\n' + message_contact_list)
 
 booking.load_data(data_file)
 logger.info('Data loaded')
@@ -64,28 +69,26 @@ def get_timedelta(seconds):
 
 
 def get_datetime(seconds):
-    return booking.time_axis + get_timedelta(seconds)
+    return booking.TIME_AXIS + get_timedelta(seconds)
 
 
-def get_error_message(error_code, if_ok=None):
-    if error_code == booking.EVERYTHING_OK:
+def get_error_message(exception, if_ok=None):
+    if exception is None:
         if if_ok is None:
             return message_operation_ok
         else:
             return if_ok
-    elif error_code == booking.BAD_DATE_FORMAT:
+    elif isinstance(exception, BotBadDateFormat):
         return message_bad_date_format
-    elif error_code == booking.NO_ACCESS:
+    elif isinstance(exception, BotNoAccess):
         return message_no_access
-    elif error_code == booking.MISC_ERROR:
-        return message_misc_error
-    elif error_code == booking.BAD_INPUT:
+    elif isinstance(exception, BotBadInput):
         return message_bad_input
-    elif error_code == booking.TIME_OCCUPIED:
+    elif isinstance(exception, BotTimeOccupied):
         return message_time_occupied
-    elif error_code == booking.TIME_PASSED:
+    elif isinstance(exception, BotTimePassed):
         return message_time_passed
-    elif error_code == booking.BOOKING_NOT_FOUND:
+    elif isinstance(exception, BotBookingNotFound):
         return message_booking_not_found
     else:
         return message_misc_error
@@ -102,7 +105,8 @@ def format_timetable(timetable_data):
             result += '\n'
         result += message_timetable_row.format(
             (get_datetime(timetable_item[0]).strftime('%H:%M'),
-             get_datetime(timetable_item[0] + timetable_item[1]).strftime('%H:%M'),
+             get_datetime(timetable_item[0]
+             + timetable_item[1]).strftime('%H:%M'),
              timetable_item[2])
         )
         result += '\n'
@@ -164,23 +168,26 @@ def process_cmd_book(message):
         bot.send_message(message.chat.id, message_bad_input)
         return
     words = message.text.split(' ', 5)
-    cmd_result = booking.MISC_ERROR
+    exc = None
     try:
+        log_msg_format = ('Called /book for date {}, time {}, duration {}, '
+                          'description {}')
         logger.info(
-            'Called /book for date {}, time {}, duration {}, description {}'.format(
+            log_msg_format.format(
                 words[1], words[2], words[3], words[4]))
         try:
             time = booking.process_date_time(words[1], words[2])
             duration = booking.process_time(words[3])
         except ValueError:
-            cmd_result = booking.BAD_INPUT
+            raise BotBadInput()
         else:
-            cmd_result = booking.book(sender_id, time, duration, words[4])
-        logger.info('/book result is: {}'.format(cmd_result))
+            booking.book(sender_id, time, duration, words[4])
     except Exception as exception:
-        logger.error('Error ocurred when executing comand /book')
-        logger.exception(exception)
-    bot.send_message(message.chat.id, get_error_message(cmd_result))
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /book')
+            logger.exception(exception)
+        exc = exception
+    bot.send_message(message.chat.id, get_error_message(exc))
 
 
 @bot.message_handler(commands=['unbook'])
@@ -193,21 +200,22 @@ def process_cmd_unbook(message):
         bot.send_message(message.chat.id, message_bad_input)
         return
     words = message.text.split(' ', 3)
-    cmd_result = booking.MISC_ERROR
+    exc = None
     try:
         logger.info(
             'Called /unbook for date {}, time {}'.format(words[1], words[2]))
         try:
             time = booking.process_date_time(words[1], words[2])
         except ValueError:
-            cmd_result = booking.BAD_INPUT
+            raise BotBadInput()
         else:
-            cmd_result = booking.unbook(sender_id, time)
-        logger.info('/unbook result is: {}'.format(cmd_result))
+            booking.unbook(sender_id, time)
     except Exception as exception:
-        logger.error('Error ocurred when executing comand /unbook')
-        logger.exception(exception)
-    bot.send_message(message.chat.id, get_error_message(cmd_result))
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /unbook')
+            logger.exception(exception)
+        exc = exception
+    bot.send_message(message.chat.id, get_error_message(exc))
 
 
 @bot.message_handler(commands=['unbook_force'])
@@ -221,7 +229,7 @@ def process_cmd_unbook_force(message):
         bot.send_message(message.chat.id, message_bad_input)
         return
     words = message.text.split(' ', 3)
-    cmd_result = booking.MISC_ERROR
+    exc = None
     try:
         logger.info(
             'Called /unbook_force for date {}, time {}'.format(words[1],
@@ -229,33 +237,35 @@ def process_cmd_unbook_force(message):
         try:
             time = booking.process_date_time(words[1], words[2])
         except ValueError:
-            cmd_result = booking.BAD_INPUT
+            raise BotBadInput
         else:
-            cmd_result = booking.unbook(sender_id, time, force=True)
-        logger.info('/unbook_force result is: {}'.format(cmd_result))
+            booking.unbook(sender_id, time, force=True)
     except Exception as exception:
-        logger.error('Error ocurred when executing comand /unbook_force')
-        logger.exception(exception)
-    bot.send_message(message.chat.id, get_error_message(cmd_result))
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /unbook_force')
+            logger.exception(exception)
+        exc = exception
+    bot.send_message(message.chat.id, get_error_message(exc))
 
 
 def process_button_timetable(sender_id, chat_id):
     logger.info('Called /timetable from user {}'.format(sender_id))
-    start_time = (datetime.today() - booking.time_axis).total_seconds()
+    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
     end_time = -1
-    cmd_result = booking.MISC_ERROR
-    start_time = (datetime.today() - booking.time_axis).total_seconds()
+    exc = None
+    timetable = []
+    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
     try:
         cmd_result_list = booking.get_timetable(sender_id, start_time,
                                                 end_time)
-        cmd_result = cmd_result_list[0]
     except Exception as exception:
-        logger.error('Error ocurred when executing comand /timetable')
-        logger.exception(exception)
-    timetable = []
-    if cmd_result == booking.EVERYTHING_OK:
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /timetable')
+            logger.exception(exception)
+        exc = exception
+    else:
         timetable = format_timetable(cmd_result_list[1:])
-    bot.send_message(chat_id, get_error_message(cmd_result, if_ok=timetable))
+    bot.send_message(chat_id, get_error_message(exc, if_ok=timetable))
 
 
 @bot.message_handler(commands=['timetable'])
@@ -265,25 +275,27 @@ def process_cmd_timetable(message):
         'Called /timetable from user {} ({})'.format(
             sender_id,
             message.from_user.username))
-    start_time = (datetime.today() - booking.time_axis).total_seconds()
+    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
     end_time = -1
     if len(message.text.split()) >= 2:
         words = message.text.split(' ', 2)
         if words[1].lower() == 'today':
-            end_time = (datetime.today() - booking.time_axis).total_seconds() \
+            end_time = (datetime.today() - booking.TIME_AXIS).total_seconds() \
                        + 86400
-    cmd_result = booking.MISC_ERROR
-    start_time = (datetime.today() - booking.time_axis).total_seconds()
-    try:
-        cmd_result_list = booking.get_timetable(sender_id, start_time, end_time)
-        cmd_result = cmd_result_list[0]
-    except Exception as exception:
-        logger.error('Error ocurred when executing comand /timetable')
-        logger.exception(exception)
+    exc = None
     timetable = []
-    if cmd_result == booking.EVERYTHING_OK:
+    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
+    try:
+        cmd_result_list = booking.get_timetable(sender_id, start_time,
+                                                end_time)
+    except Exception as exception:
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /timetable')
+            logger.exception(exception)
+        exc = exception
+    else:
         timetable = format_timetable(cmd_result_list[1:])
-    bot.send_message(message.chat.id, get_error_message(cmd_result,
+    bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=timetable))
 
 
@@ -293,14 +305,15 @@ def process_cmd_save(message):
     logger.info(
         'Called /savedata from user {} ({})'.format(
             sender_id, message.from_user.username))
-    cmd_result = booking.MISC_ERROR
+    exc = None
     try:
-        cmd_result = booking.save_data(sender_id, data_file, whitelist_file)
-        logger.info('/savedata result is: {}'.format(cmd_result))
+        booking.save_all_data(sender_id, data_file, whitelist_file)
     except Exception as exception:
-        logger.error('Error ocurred when executing comand /savedata')
-        logger.exception(exception)
-    bot.send_message(message.chat.id, get_error_message(cmd_result))
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /saveadata')
+            logger.exception(exception)
+        exc = exception
+    bot.send_message(message.chat.id, get_error_message(exc))
 
 
 @bot.message_handler(commands=['logmyinfo'])
@@ -312,12 +325,17 @@ def process_cmd_logmyinfo(message):
 
 
 def process_button_contactlist(sender_id, chat_id):
-    bot.send_message(chat_id, contact_list)
+    bot.send_message(chat_id, message_contact_list)
 
 
 @bot.message_handler(commands=['contactlist'])
+def process_cmd_contactlist(message):
+    bot.send_message(message.chat.id, message_contact_list)
+
+
+@bot.message_handler(commands=['help'])
 def process_cmd_help(message):
-    bot.send_message(message.chat.id, contact_list)
+    bot.send_message(message.chat.id, message_help)
 
 
 '''
