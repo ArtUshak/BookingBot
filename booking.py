@@ -12,6 +12,7 @@ whitelist = []
 booking_data = None
 
 minute_treshold = 15
+# TODO: use datetime module instead of seconds
 TIME_AXIS = datetime(1970, 1, 1)
 
 
@@ -268,8 +269,10 @@ def get_timetable(user_id, start_time_data=-1, end_time_data=-1):
 def process_date(date_str):
     """
     Parses date data from given date string `date_str` and returns
-    number of seconds between that date and `TIME_AXIS` (the
-    1970-01-01 00:00).
+    number of seconds between that date and `TIME_AXIS`
+    (1970-01-01 00:00).
+    `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
+    or `DD.MM`.
     """
     global minute_treshold
     try:
@@ -294,6 +297,9 @@ def process_date_time(date_str, time_str):
     Parses date and time data from given date string `date_str`
     and time string `time_str` and returns number of seconds
     between that moment and `TIME_AXIS` (the 1970-01-01 00:00).
+    `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
+    or `DD.MM`.
+    `time_str` could be in formats `hh:mm` or `hh:mm:ss`.
     """
     global minute_treshold
     try:
@@ -327,6 +333,8 @@ def process_time(time_str):
     """
     Parses time duration from given time string `time_str` and
     returns it as number of seconds.
+    `time_str` could be in formats `minutes:seconds` or simply
+    `seconds`.
     """
     if len(time_str.split(":")) == 1:
         data_timedelta = timedelta(

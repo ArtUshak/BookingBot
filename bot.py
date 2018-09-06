@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""
+Telegram bot for booking auditorium (see `README.md`).
+"""
 from datetime import datetime, timedelta
 import logging
 
@@ -16,6 +19,9 @@ logger = logging.getLogger('bot')
 
 
 def get_help(help_filename):
+    """
+    Loads content of help text file `help_filename` and returns it.
+    """
     logger.info('Loading help text...')
     with open(help_filename, encoding='utf-8') as help_file:
         help_text = help_file.read()
@@ -23,6 +29,10 @@ def get_help(help_filename):
 
 
 def get_contactlist(contactlist_filename):
+    """
+    Loads content of contact list text file `help_filename` and
+    returns it.
+    """
     logger.info('Loading contact list...')
     with open(contactlist_filename, encoding='utf-8') \
             as contactlist_file:
@@ -31,6 +41,10 @@ def get_contactlist(contactlist_filename):
 
 
 def get_token(filename):
+    """
+    Loads token from from first line of file `filename` and
+    returns it, without leading and trailing whitespaces.
+    """
     logger.info('Loading token...')
     with open(filename, encoding='utf-8') as token_file:
         token = token_file.readline().strip()
@@ -64,15 +78,28 @@ logger.info('Bot instance created')
 
 
 def get_timedelta(seconds):
+    """
+    Returns `datetime.timedelta` object from the seconds number
+    `seconds`.
+    """
     return timedelta(days=seconds // 86400,
                      seconds=seconds % 86400)
 
 
 def get_datetime(seconds):
+    """
+    Returns `datetime.datetime` object with the `seconds` seconds
+    passed after `booking.TIME_AXIS` (1970-01-01 00:00).
+    """
     return booking.TIME_AXIS + get_timedelta(seconds)
 
 
 def get_error_message(exception, if_ok=None):
+    """
+    Returns error message based on exception `exception`.
+    If `exception` is `None`, it returns `if_ok`. If it is `None` too,
+    it returns default success message.
+    """
     if exception is None:
         if if_ok is None:
             return message_operation_ok
@@ -95,6 +122,13 @@ def get_error_message(exception, if_ok=None):
 
 
 def format_timetable(timetable_data):
+    """
+    Returns formatted timetable `timetable_data` as string.
+    Timetable is given as a list of booking items.
+    In resulting string each booking item should be placed on
+    different line, with data about start and end time and
+    description.
+    """
     date_str = None
     result = message_timetable_header + '\n'
     for timetable_item in timetable_data:
@@ -115,6 +149,12 @@ def format_timetable(timetable_data):
 
 @bot.message_handler(commands=['start', 'help'])
 def process_cmd_help(message):
+    """
+    Command `/help`
+    Syntax: `/help`
+    Syntax: `/start`
+    Displays help text message.
+    """
     bot.send_message(message.chat.id, message_help)
     # send_cmd_keyboard(message.chat.id, message_testing)
 
@@ -153,32 +193,44 @@ def callback_inline(call):
         process_button_timetable(int(tokens[1]), call.message.chat.id)
     if tokens[0] == 'contactlist':
         process_button_contactlist(int(tokens[1]), call.message.chat.id)
+    else:
+        bot.send_message(message_indev, call.message.chat.id)
 
 
 @bot.message_handler(commands=['book'])
 def process_cmd_book(message):
+    """
+    Command `/book`
+    Syntax: `/book <DATE> <TIME> <DURATION> <DESCRIPTION>`
+    Adds new booking item starting from moment `<DATE> <TIME>` and
+    ending at moment `<DATE> <TIME> + <DURATION>` with description
+    `<DESCRIPTION>`.
+    """
     sender_id = message.from_user.id
     logger.info(
         'Called /book from user {} ({})'.format(sender_id,
                                                 message.from_user.username))
-    if len(message.text.split()) < 5:
-        bot.send_message(message.chat.id, message_bad_input)
-        return
-    words = message.text.split(' ', 5)
     exc = None
     try:
+        if len(message.text.split()) < 5:
+            raise BotBadInput()
+        words = message.text.split(' ', 4)
+        date_str = words[1]
+        time_str = words[2]
+        duration_str = words[3]
+        description = words[4]
         log_msg_format = ('Called /book for date {}, time {}, duration {}, '
                           'description {}')
         logger.info(
             log_msg_format.format(
-                words[1], words[2], words[3], words[4]))
+                date_str, time_str, duration_str, description))
         try:
-            time = booking.process_date_time(words[1], words[2])
-            duration = booking.process_time(words[3])
+            time = booking.process_date_time(date_str, time_str)
+            duration = booking.process_time(duration_str)
         except ValueError:
             raise BotBadInput()
         else:
-            booking.book(sender_id, time, duration, words[4])
+            booking.book(sender_id, time, duration, description)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /book')
@@ -189,20 +241,28 @@ def process_cmd_book(message):
 
 @bot.message_handler(commands=['unbook'])
 def process_cmd_unbook(message):
+    """
+    Command `/unbook`
+    Syntax: `/unbook <DATE> <TIME>`
+    Removes booking that intersect with moment `<DATE> <TIME>`. Does not
+    remove booking if it was not added by current user or if it has
+    passed.
+    """
     sender_id = message.from_user.id
     logger.info(
         'Called /unbook from user {} ({})'.format(sender_id,
                                                   message.from_user.username))
-    if len(message.text.split()) < 3:
-        bot.send_message(message.chat.id, message_bad_input)
-        return
-    words = message.text.split(' ', 3)
     exc = None
     try:
+        if len(message.text.split()) < 3:
+            raise BotBadInput()
+        words = message.text.split(' ', 3)
+        date_str = words[1]
+        time_str = words[2]
         logger.info(
-            'Called /unbook for date {}, time {}'.format(words[1], words[2]))
+            'Called /unbook for date {}, time {}'.format(date_str, time_str))
         try:
-            time = booking.process_date_time(words[1], words[2])
+            time = booking.process_date_time(date_str, time_str)
         except ValueError:
             raise BotBadInput()
         else:
@@ -217,22 +277,29 @@ def process_cmd_unbook(message):
 
 @bot.message_handler(commands=['unbook_force'])
 def process_cmd_unbook_force(message):
+    """
+    Command `/unbook_force`
+    Syntax: `/unbook <DATE> <TIME>`
+    Removes booking that intersect with moment `<DATE> <TIME>` without
+    restrictions applied `/unbook` command, although still respecting
+    user permissions.
+    """
     sender_id = message.from_user.id
     logger.info(
         'Called /unbook_force from user {} ({})'.format(
-            sender_id,
-            message.from_user.username))
-    if len(message.text.split()) < 3:
-        bot.send_message(message.chat.id, message_bad_input)
-        return
-    words = message.text.split(' ', 3)
+            sender_id, message.from_user.username))
     exc = None
     try:
+        if len(message.text.split()) < 3:
+            raise BotBadInput()
+        words = message.text.split(' ', 3)
+        date_str = words[1]
+        time_str = words[2]
         logger.info(
-            'Called /unbook_force for date {}, time {}'.format(words[1],
-                                                               words[2]))
+            'Called /unbook_force for date {}, time {}'.format(
+                date_str, time_str))
         try:
-            time = booking.process_date_time(words[1], words[2])
+            time = booking.process_date_time(date_str, time_str)
         except ValueError:
             raise BotBadInput()
         else:
@@ -267,6 +334,15 @@ def process_button_timetable(sender_id, chat_id):
 
 @bot.message_handler(commands=['timetable'])
 def process_cmd_timetable(message):
+    """
+    Command `/timetable`
+    Syntax: `/timetable`
+    Syntax: `/timetable TODAY`
+    Syntax: `/timetable <DATE>`
+    Displays timetable for all timeline since current day (if no
+    parameters were given), for current day (if parameter was TODAY)
+    or for `<DATE>` (if it was given).
+    """
     sender_id = message.from_user.id
     logger.info(
         'Called /timetable from user {} ({})'.format(
@@ -304,6 +380,12 @@ def process_cmd_timetable(message):
 
 @bot.message_handler(commands=['savedata'])
 def process_cmd_save(message):
+    """
+    Command `/savedata`
+    Syntax: `/savedata`
+    Saves current booking data and white list to files.
+    This command is administrator-only.
+    """
     sender_id = message.from_user.id
     logger.info(
         'Called /savedata from user {} ({})'.format(
@@ -321,6 +403,11 @@ def process_cmd_save(message):
 
 @bot.message_handler(commands=['logmyinfo'])
 def process_cmd_logmyinfo(message):
+    """
+    Command `/logmyinfo`
+    Syntax: `/logmyinfo`
+    Does nothing, just writes user ID and username to log.
+    """
     sender_id = message.from_user.id
     logger.info(
         'Called /logmyinfo from user {} ({})'.format(
