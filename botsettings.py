@@ -43,5 +43,5 @@ token_file = '../bookingbot-data/b1540-n38-token.txt'
 
 
 telebot.apihelper.proxy = {
-    'https': 'https://192.244.104.105:3129'
+    'https': 'https://185.14.149.53:8080'
 }

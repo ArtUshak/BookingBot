@@ -104,22 +104,19 @@ def format_timetable(timetable_data):
             result += message_timetable_date_row.format(date_str)
             result += '\n'
         result += message_timetable_row.format(
-            (get_datetime(timetable_item[0]).strftime('%H:%M'),
-             get_datetime(timetable_item[0]
-             + timetable_item[1]).strftime('%H:%M'),
-             timetable_item[2])
+            get_datetime(timetable_item[0]).strftime('%H:%M'),
+            (get_datetime(timetable_item[0]
+             + timetable_item[1]).strftime('%H:%M')),
+            timetable_item[2]
         )
         result += '\n'
     return result
 
 
-# TODO
-"""
 @bot.message_handler(commands=['start', 'help'])
 def process_cmd_help(message):
     bot.send_message(message.chat.id, message_help)
-    send_cmd_keyboard(message.chat.id, message_testing)
-"""
+    # send_cmd_keyboard(message.chat.id, message_testing)
 
 
 def send_cmd_keyboard(chat_id, text):
@@ -264,7 +261,7 @@ def process_button_timetable(sender_id, chat_id):
             logger.exception(exception)
         exc = exception
     else:
-        timetable = format_timetable(cmd_result_list[1:])
+        timetable = format_timetable(cmd_result_list)
     bot.send_message(chat_id, get_error_message(exc, if_ok=timetable))
 
 
@@ -284,7 +281,6 @@ def process_cmd_timetable(message):
                        + 86400
     exc = None
     timetable = []
-    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
     try:
         cmd_result_list = booking.get_timetable(sender_id, start_time,
                                                 end_time)
@@ -294,7 +290,7 @@ def process_cmd_timetable(message):
             logger.exception(exception)
         exc = exception
     else:
-        timetable = format_timetable(cmd_result_list[1:])
+        timetable = format_timetable(cmd_result_list)
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=timetable))
 
@@ -331,11 +327,6 @@ def process_button_contactlist(sender_id, chat_id):
 @bot.message_handler(commands=['contactlist'])
 def process_cmd_contactlist(message):
     bot.send_message(message.chat.id, message_contact_list)
-
-
-@bot.message_handler(commands=['help'])
-def process_cmd_help(message):
-    bot.send_message(message.chat.id, message_help)
 
 
 '''
