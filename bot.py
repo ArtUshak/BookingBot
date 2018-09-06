@@ -59,18 +59,10 @@ logger.info('Help message:\n' + message_help)
 message_contact_list = get_contactlist(contactlist_file)
 logger.info('Contact list:\n' + message_contact_list)
 
-booking.load_data(data_file)
-logger.info('Data loaded')
-
-booking.load_whitelist(whitelist_file)
-logger.info('Whitelist loaded')
-logger.info('Whitelist: {}'.format(str(booking.whitelist)))
-
-booking.load_admins(adminlist_file)
-logger.info('Admin list loaded')
-logger.info('Admins: {}'.format(str(booking.admins)))
+booking_db = booking.BookingDB(adminlist_file, data_file, whitelist_file)
 
 token = get_token(token_file)
+logger.info('Token loaded')
 
 bot = telebot.TeleBot(token)
 
@@ -230,7 +222,7 @@ def process_cmd_book(message):
         except ValueError:
             raise BotBadInput()
         else:
-            booking.book(sender_id, time, duration, description)
+            booking_db.book(sender_id, time, duration, description)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /book')
@@ -266,7 +258,7 @@ def process_cmd_unbook(message):
         except ValueError:
             raise BotBadInput()
         else:
-            booking.unbook(sender_id, time)
+            booking_db.unbook(sender_id, time)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /unbook')
@@ -303,7 +295,7 @@ def process_cmd_unbook_force(message):
         except ValueError:
             raise BotBadInput()
         else:
-            booking.unbook(sender_id, time, force=True)
+            booking_db.unbook(sender_id, time, force=True)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /unbook_force')
@@ -320,8 +312,8 @@ def process_button_timetable(sender_id, chat_id):
     timetable = []
     start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
     try:
-        cmd_result_list = booking.get_timetable(sender_id, start_time,
-                                                end_time)
+        cmd_result_list = booking_db.get_timetable(sender_id, start_time,
+                                                   end_time)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /timetable')
@@ -365,8 +357,8 @@ def process_cmd_timetable(message):
                     end_time = start_time + 86400
                 except ValueError:
                     raise BotBadDateFormat()
-        cmd_result_list = booking.get_timetable(sender_id, start_time,
-                                                end_time)
+        cmd_result_list = booking_db.get_timetable(sender_id, start_time,
+                                                   end_time)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /timetable')
@@ -392,10 +384,10 @@ def process_cmd_save(message):
             sender_id, message.from_user.username))
     exc = None
     try:
-        booking.save_all_data(sender_id, data_file, whitelist_file)
+        booking_db.save_all_data(sender_id, data_file, whitelist_file)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /saveadata')
+            logger.error('Error ocurred when executing comand /savedata')
             raise
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc))
@@ -442,4 +434,5 @@ def process_input(message):
 
 
 if __name__ == '__main__':
+    logger.info('Started polling')
     bot.polling()
