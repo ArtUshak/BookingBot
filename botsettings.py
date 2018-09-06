@@ -2,7 +2,7 @@ import logging
 import telebot
 
 
-logging.basicConfig(level=logging.DEBUG,
+logging.basicConfig(level=logging.INFO,
                     format='%(asctime)-15s %(message)s',
                     handlers=[logging.FileHandler(
                                 '../bookingbot-data/log.log'),
@@ -41,6 +41,7 @@ whitelist_file = '../bookingbot-data/whitelist.txt'
 adminlist_file = '../bookingbot-data/admins.txt'
 token_file = '../bookingbot-data/b1540-n38-token.txt'
 
+
 telebot.apihelper.proxy = {
-    'https': 'socks4://217.73.190.188:3366'
+    'https': 'https://46.216.53.236:41258'
 }

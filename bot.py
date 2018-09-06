@@ -74,7 +74,7 @@ def get_error_message(error_code, if_ok=None):
         else:
             return if_ok
     elif error_code == booking.BAD_DATE_FORMAT:
-        return message_invalid_classid
+        return message_bad_date_format
     elif error_code == booking.NO_ACCESS:
         return message_no_access
     elif error_code == booking.MISC_ERROR:
@@ -109,10 +109,13 @@ def format_timetable(timetable_data):
     return result
 
 
+# TODO
+"""
 @bot.message_handler(commands=['start', 'help'])
 def process_cmd_help(message):
     bot.send_message(message.chat.id, message_help)
     send_cmd_keyboard(message.chat.id, message_testing)
+"""
 
 
 def send_cmd_keyboard(chat_id, text):
@@ -336,4 +339,4 @@ def process_input(message):
 
 
 if __name__ == '__main__':
-    bot.polling(none_stop=True)
+    bot.polling()

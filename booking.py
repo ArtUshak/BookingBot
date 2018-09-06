@@ -21,31 +21,25 @@ minute_treshold = 15
 time_axis = datetime(1970, 1, 1)
 
 
+logger = logging.getLogger('bot')
+
+
 def load_admins(filename):
     global admins
-    try:
-        with open(filename, 'r', encoding="utf-8") as admins_file:
-            for line in admins_file:
-                data = line.strip()
-                if len(data) == 0:
-                    continue
-                if data[0] == '#':
-                    continue
-                admins += [int(data)]
-    except FileNotFoundError:
-        log('Can not find admin list file', 'ERROR')
-    except BufferError:
-        log('Buffer error in admin list file', 'ERROR')
-    except EOFError:
-        log('EOF error in admin list file', 'ERROR')
-    except ValueError:
-        log('Format error in admin list file', 'ERROR')
-    except Exception:
-        log('Misc error in admin list file', 'ERROR')
+    logger.info('Loading admin list...')
+    with open(filename, 'r', encoding="utf-8") as admins_file:
+        for line in admins_file:
+            data = line.strip()
+            if len(data) == 0:
+                continue
+            if data[0] == '#':
+                continue
+            admins += [int(data)]
 
 
 def load_whitelist(filename):
     global whitelist
+    logger.info('Loading whitelist...')
     try:
         with open(filename, 'r', encoding="utf-8") as whitelist_file:
             for line in whitelist_file:
@@ -55,27 +49,21 @@ def load_whitelist(filename):
                 if data[0] == '#':
                     continue
                 whitelist += [int(data)]
-    except Exception:
+    except FileNotFoundError:
         whitelist = []
-        log('Error in whitelist file, whitelist set empty',)
+    except BufferError:
+        whitelist = []
+    except EOFError:
+        whitelist = []
+    except ValueError:
+        whitelist = []
 
 
 def save_whitelist(filename):
     global whitelist
-    try:
-        with open(filename, 'w', encoding="utf-8") as whitelist_file:
-            for whitelist_item in whitelist:
-                whitelist_file.write(str(whitelist_item) + "\n")
-    except FileNotFoundError:
-        log('Can not find whitelist file', 'ERROR')
-    except BufferError:
-        log('Buffer error in whitelist file', 'ERROR')
-    except EOFError:
-        log('EOF error in whitelist file', 'ERROR')
-    except ValueError:
-        log('Format error in whitelist file', 'ERROR')
-    except Exception:
-        log('Misc error in whitelist file', 'ERROR')
+    with open(filename, 'w', encoding="utf-8") as whitelist_file:
+        for whitelist_item in whitelist:
+            whitelist_file.write(str(whitelist_item) + "\n")
 
 
 def is_admin(user_id):
@@ -136,7 +124,7 @@ def is_free_time(time_data, duration):
 
 
 def get_is_free_time(time_data, duration):
-    return [EVERYTHING_OK, is_free_time(time_data)]
+    return [EVERYTHING_OK, is_free_time(time_data, duration)]
 
 
 def book(user_id, time_data, duration, description):
