@@ -182,7 +182,7 @@ def process_cmd_book(message):
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /book')
-            logger.exception(exception)
+            raise
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc))
 
@@ -210,7 +210,7 @@ def process_cmd_unbook(message):
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /unbook')
-            logger.exception(exception)
+            raise
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc))
 
@@ -234,13 +234,13 @@ def process_cmd_unbook_force(message):
         try:
             time = booking.process_date_time(words[1], words[2])
         except ValueError:
-            raise BotBadInput
+            raise BotBadInput()
         else:
             booking.unbook(sender_id, time, force=True)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /unbook_force')
-            logger.exception(exception)
+            raise
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc))
 
@@ -258,7 +258,7 @@ def process_button_timetable(sender_id, chat_id):
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /timetable')
-            logger.exception(exception)
+            raise
         exc = exception
     else:
         timetable = format_timetable(cmd_result_list)
@@ -274,20 +274,27 @@ def process_cmd_timetable(message):
             message.from_user.username))
     start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
     end_time = -1
-    if len(message.text.split()) >= 2:
-        words = message.text.split(' ', 2)
-        if words[1].lower() == 'today':
-            end_time = (datetime.today() - booking.TIME_AXIS).total_seconds() \
-                       + 86400
     exc = None
     timetable = []
     try:
+        if len(message.text.split()) >= 2:
+            words = message.text.split(' ', 2)
+            if words[1].lower() == 'today':
+                end_time = (
+                    (datetime.today() - booking.TIME_AXIS).total_seconds()
+                    + 86400)
+            else:
+                try:
+                    start_time = booking.process_date(words[1])
+                    end_time = start_time + 86400
+                except ValueError:
+                    raise BotBadDateFormat()
         cmd_result_list = booking.get_timetable(sender_id, start_time,
                                                 end_time)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /timetable')
-            logger.exception(exception)
+            raise
         exc = exception
     else:
         timetable = format_timetable(cmd_result_list)
@@ -307,7 +314,7 @@ def process_cmd_save(message):
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /saveadata')
-            logger.exception(exception)
+            raise
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc))
 

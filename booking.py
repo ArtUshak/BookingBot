@@ -237,10 +237,10 @@ def unbook(user_id, time_data, force=False):
             raise BotTimePassed()
     booking_id = get_booking(time_data)
     if booking_id < 0:
-        raise BotBookingNotFound
+        raise BotBookingNotFound()
     if not force:
         if booking_data[booking_id][3] != user_id:
-            raise BotNoAccess
+            raise BotNoAccess()
     booking_data.pop(booking_id)
     booking_data.sort(key=lambda booking_data_item: booking_data_item[0])
 
@@ -263,6 +263,30 @@ def get_timetable(user_id, start_time_data=-1, end_time_data=-1):
                 continue
         result += [booking_data_item]
     return result
+
+
+def process_date(date_str):
+    """
+    Parses date data from given date string `date_str` and returns
+    number of seconds between that date and `TIME_AXIS` (the
+    1970-01-01 00:00).
+    """
+    global minute_treshold
+    try:
+        result = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        try:
+            result = datetime.strptime(date_str, "%d.%m.%Y")
+        except ValueError:
+            try:
+                result = datetime.strptime(date_str, "%m-%d")
+            except ValueError:
+                result = datetime.strptime(date_str, "%d.%m")
+
+    if result.year == 1900:
+        result = datetime(
+            datetime.today().year, result.month, result.day)
+    return int((result - TIME_AXIS).total_seconds())
 
 
 def process_date_time(date_str, time_str):
