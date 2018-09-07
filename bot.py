@@ -296,6 +296,8 @@ def process_cmd_book(message):
             raise BotBadInput()
         else:
             booking_db.book(sender_id, time, duration, description)
+        booking_db.save_all_data(-1, data_file, whitelist_file,
+                                 user_data_file)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /book')
@@ -332,6 +334,8 @@ def process_cmd_unbook(message):
             raise BotBadInput()
         else:
             booking_db.unbook(sender_id, time)
+        booking_db.save_all_data(-1, data_file, whitelist_file,
+                                 user_data_file)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /unbook')
@@ -369,6 +373,8 @@ def process_cmd_unbook_force(message):
             raise BotBadInput()
         else:
             booking_db.unbook(sender_id, time, force=True)
+        booking_db.save_all_data(-1, data_file, whitelist_file,
+                                 user_data_file)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /unbook_force')
@@ -467,6 +473,7 @@ def process_cmd_timetable(message):
         timetable = format_timetable(cmd_result_list)
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=timetable))
+    booking_db.save_whitelist(whitelist_file)
 
 
 @bot.message_handler(commands=['savedata'])
@@ -504,6 +511,7 @@ def process_cmd_logmyinfo(message):
     logger.info(
         'Called /logmyinfo from user {} ({})'.format(
             sender_id, message.from_user.username))
+    booking_db.save_whitelist(whitelist_file)
 
 
 @inline_handler(r'contactlist:(\d+)')
@@ -551,6 +559,7 @@ def process_cmd_whitelist(message):
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=msg_text))
+    booking_db.save_whitelist(whitelist_file)
 
 
 '''
