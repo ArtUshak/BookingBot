@@ -4,10 +4,11 @@ import logging
 import telebot
 
 
+log_file = '../BookingBot-data/log.log'
+
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)-15s %(message)s',
-                    handlers=[logging.FileHandler(
-                                '../BookingBot-data/log.log'),
+                    handlers=[logging.FileHandler(log_file),
                               logging.StreamHandler()])
 
 

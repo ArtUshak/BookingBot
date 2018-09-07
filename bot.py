@@ -59,7 +59,7 @@ def get_proxy(filename):
     logger.info('Loading proxy data...')
     with open(filename, encoding='utf-8') as token_file:
         proxy = token_file.readline().strip().split(' ', 1)
-    if len(proxy) < 1:
+    if len(proxy) < 2:
         return None
     else:
         return proxy

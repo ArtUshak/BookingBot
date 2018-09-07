@@ -18,6 +18,17 @@ TIME_AXIS = datetime(1970, 1, 1)
 class BookingDB(object):
     def __init__(self, adminlist_filename, data_filename,
                  whitelist_filename, user_data_filename):
+        """
+        Initializes booking data object.
+        Administrator list will be loaded from `adminlist_filename`. If this
+        file do not exist, it will be initialized empty.
+        Data will be loaded from `data_filename`. If this file do not exist,
+        it will be initialized empty.
+        Whitelist will be loaded from `adminlist_filename`. If this file do
+        not exist, it will be initialized empty.
+        User data will be loaded from `user_data_filename`. If this file do
+        not exist, it will be initialized empty.
+        """
         self.load_or_init_data(data_filename)
         if whitelist_filename is not None:
             self.load_whitelist(whitelist_filename)
