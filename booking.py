@@ -148,7 +148,7 @@ class BookingDB(object):
         """
         Initializes new empty user data.
         """
-        self.user_data = []
+        self.user_data = {}
 
     def load_user_data(self, filename):
         """
@@ -217,16 +217,10 @@ class BookingDB(object):
         Updates data for user with ID `user_id`, setting `chat_id` and
         `username`.
         """
-        for i in range(len(self.user_data)):
-            if self.user_data[i]['user_id'] == user_id:
-                self.user_data[i]['chat_id'] = chat_id
-                self.user_data[i]['username'] = username
-                return
-        self.user_data.append({
-            'user_id': user_id,
-            'chat_id': chat_id,
+        self.user_data[user_id] = {
             'username': username,
-        })
+            'chat_id': chat_id,
+        }
 
     def is_free_time(self, time_data, duration):
         """
@@ -335,6 +329,27 @@ class BookingDB(object):
                 if booking_data_item[0] > end_time_data:
                     continue
             result += [booking_data_item]
+        return result
+
+    def get_whitelist(self, user_id):
+        """
+        Command function.
+        Returns whitelist as list of user names (or `<not registered>`
+        strings for users who are not present in user database).
+        If user with ID `user_id` do not have permissions to request
+        this action, it will not be performed and `BotNoAccess` will be
+        raised.
+        """
+        if not self.is_admin(user_id):
+            raise BotNoAccess()
+        result = []
+        for whitelist_user_id in self.whitelist:
+            if whitelist_user_id in self.user_data:
+                whitelist_username = (
+                    '@' + self.user_data[whitelist_user_id]['username'])
+            else:
+                whitelist_username = '<?>'
+            result.append((whitelist_user_id, whitelist_username,))
         return result
 
 

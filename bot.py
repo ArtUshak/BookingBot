@@ -162,6 +162,20 @@ def format_timetable(timetable_data):
     return result
 
 
+def format_whitelist(whitelist):
+    """
+    Returns formatted whitelist `whitelist` as string.
+    Whitelist is given as a list of tuples of user IDs and usernames.
+    In resulting string each user should be placed on
+    different line.
+    """
+    result = message_whitelist_header + '\n'
+    for whitelist_item in whitelist:
+        result += message_whitelist_row.format(*whitelist_item)
+        result += '\n'
+    return result
+
+
 def process_message_sender(message):
     """
     Processes `message`, updates user data and retuns user id from `message`.
@@ -502,6 +516,41 @@ def process_button_contactlist(sender_id, call):
 @bot.message_handler(commands=['contactlist'])
 def process_cmd_contactlist(message):
     bot.send_message(message.chat.id, message_contact_list)
+
+
+@bot.message_handler(commands=['whitelist'])
+def process_cmd_whitelist(message):
+    """
+    Command `/whitelist`
+    Syntax: `/whitelist`
+    Syntax: `/whitelist ADD <USERNAME>`
+    Syntax: `/whitelist REMOVE <USERNAME>`
+    Displays current whitelist (if no parameters were given) or
+    adds user `<USERNAME>` or removes him from whitelist.
+    This command is administrator-only.
+    """
+    sender_id = process_message_sender(message)
+    logger.info(
+        'Called /whitelist from user {} ({})'.format(
+            sender_id,
+            message.from_user.username))
+    exc = None
+    msg_text = ''
+    try:
+        if len(message.text.split()) == 1:
+            whitelist = booking_db.get_whitelist(sender_id)
+            msg_text = format_whitelist(whitelist)
+        elif len(message.text.split()) == 3:
+            msg_text = message_indev  # TODO
+        else:
+            raise BotBadInput()
+    except Exception as exception:
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /timetable')
+            raise
+        exc = exception
+    bot.send_message(message.chat.id, get_error_message(exc,
+                                                        if_ok=msg_text))
 
 
 '''

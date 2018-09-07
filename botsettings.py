@@ -30,6 +30,9 @@ message_timetable_header = 'Расписание:'
 message_timetable_date_row = 'День {}'
 message_timetable_row = '{} - {}: {}'
 
+message_whitelist_header = 'Белый список:'
+message_whitelist_row = '{1} (ID {0})'
+
 cmd_text_timetable = 'Получить расписание'
 cmd_text_timetable_today = 'Получить на сегодня'
 cmd_text_timetable_book = 'Забронировать аудиторию'
