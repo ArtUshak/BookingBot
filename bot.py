@@ -51,6 +51,20 @@ def get_token(filename):
     return token
 
 
+def get_proxy(filename):
+    """
+    Loads proxy URL from from first line of file `filename` and
+    returns it, without leading and trailing whitespaces.
+    """
+    logger.info('Loading proxy data...')
+    with open(filename, encoding='utf-8') as token_file:
+        proxy = token_file.readline().strip().split(' ', 1)
+    if len(proxy) < 1:
+        return None
+    else:
+        return proxy
+
+
 logger.info('Starting bot...')
 
 message_help = get_help(help_file)
@@ -59,10 +73,18 @@ logger.info('Help message:\n' + message_help)
 message_contact_list = get_contactlist(contactlist_file)
 logger.info('Contact list:\n' + message_contact_list)
 
-booking_db = booking.BookingDB(adminlist_file, data_file, whitelist_file)
+booking_db = booking.BookingDB(adminlist_file, data_file, whitelist_file,
+                               user_data_file)
 
 token = get_token(token_file)
 logger.info('Token loaded')
+
+proxy_data = get_proxy(proxy_file)
+logger.info('Proxy data loaded')
+if proxy_data is not None:
+    telebot.apihelper.proxy = {
+        proxy_data[0]: proxy_data[1]
+    }
 
 bot = telebot.TeleBot(token)
 
@@ -139,6 +161,17 @@ def format_timetable(timetable_data):
     return result
 
 
+def process_message_sender(message):
+    """
+    Processes `message`, updates user data and retuns user id from `message`.
+    """
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    username = message.from_user.username
+    booking_db.update_user_data(user_id, chat_id, username)
+    return user_id
+
+
 @bot.message_handler(commands=['start', 'help'])
 def process_cmd_help(message):
     """
@@ -198,7 +231,7 @@ def process_cmd_book(message):
     ending at moment `<DATE> <TIME> + <DURATION>` with description
     `<DESCRIPTION>`.
     """
-    sender_id = message.from_user.id
+    sender_id = process_message_sender(message)
     logger.info(
         'Called /book from user {} ({})'.format(sender_id,
                                                 message.from_user.username))
@@ -240,7 +273,7 @@ def process_cmd_unbook(message):
     remove booking if it was not added by current user or if it has
     passed.
     """
-    sender_id = message.from_user.id
+    sender_id = process_message_sender(message)
     logger.info(
         'Called /unbook from user {} ({})'.format(sender_id,
                                                   message.from_user.username))
@@ -276,7 +309,7 @@ def process_cmd_unbook_force(message):
     restrictions applied `/unbook` command, although still respecting
     user permissions.
     """
-    sender_id = message.from_user.id
+    sender_id = process_message_sender(message)
     logger.info(
         'Called /unbook_force from user {} ({})'.format(
             sender_id, message.from_user.username))
@@ -335,7 +368,7 @@ def process_cmd_timetable(message):
     parameters were given), for current day (if parameter was TODAY)
     or for `<DATE>` (if it was given).
     """
-    sender_id = message.from_user.id
+    sender_id = process_message_sender(message)
     logger.info(
         'Called /timetable from user {} ({})'.format(
             sender_id,
@@ -378,13 +411,14 @@ def process_cmd_save(message):
     Saves current booking data and white list to files.
     This command is administrator-only.
     """
-    sender_id = message.from_user.id
+    sender_id = process_message_sender(message)
     logger.info(
         'Called /savedata from user {} ({})'.format(
             sender_id, message.from_user.username))
     exc = None
     try:
-        booking_db.save_all_data(sender_id, data_file, whitelist_file)
+        booking_db.save_all_data(sender_id, data_file, whitelist_file,
+                                 user_data_file)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /savedata')
@@ -400,7 +434,7 @@ def process_cmd_logmyinfo(message):
     Syntax: `/logmyinfo`
     Does nothing, just writes user ID and username to log.
     """
-    sender_id = message.from_user.id
+    sender_id = process_message_sender(message)
     logger.info(
         'Called /logmyinfo from user {} ({})'.format(
             sender_id, message.from_user.username))

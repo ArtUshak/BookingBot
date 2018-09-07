@@ -17,7 +17,7 @@ TIME_AXIS = datetime(1970, 1, 1)
 
 class BookingDB(object):
     def __init__(self, adminlist_filename, data_filename,
-                 whitelist_filename):
+                 whitelist_filename, user_data_filename):
         self.load_or_init_data(data_filename)
         if whitelist_filename is not None:
             self.load_whitelist(whitelist_filename)
@@ -29,6 +29,7 @@ class BookingDB(object):
         else:
             self.admins = []
         logger.info('Admins: {}'.format(str(self.admins)))
+        self.load_or_init_user_data(user_data_filename)
 
     def load_admins(self, filename):
         """
@@ -76,9 +77,11 @@ class BookingDB(object):
         """
         Saves whitelist to file `filename`.
         """
+        logger.info('Saving whitelist...')
         with open(filename, 'w', encoding='utf-8') as whitelist_file:
             for whitelist_item in self.whitelist:
                 whitelist_file.write(str(whitelist_item) + "\n")
+        logger.info('Whitelist saved')
 
     def is_admin(self, user_id):
         """
@@ -106,17 +109,16 @@ class BookingDB(object):
         logger.info('Loading data...')
         try:
             with open(filename, 'r', encoding='utf-8') as data_file:
-                return json.load(data_file)
+                self.booking_data = json.load(data_file)
         except Exception:  # TODO
-            return None
+            self.booking_data = None
         logger.info('Data loaded')
 
-    @staticmethod
-    def init_data():
+    def init_data(self):
         """
         Initializes new empty booking data.
         """
-        return []
+        self.booking_data = []
 
     def load_or_init_data(self, filename):
         """
@@ -125,22 +127,66 @@ class BookingDB(object):
         while loading data from file.
         """
         if filename is not None:
-            self.booking_data = self.load_data(filename)
+            self.load_data(filename)
             if self.booking_data is None:
-                self.booking_data = self.init_data()
+                self.init_data()
         else:
-            self.booking_data = self.init_data()
+            self.init_data()
+
+    def init_user_data(self):
+        """
+        Initializes new empty user data.
+        """
+        self.user_data = []
+
+    def load_user_data(self, filename):
+        """
+        Tries to load user data from file `filename`,
+        returns None on any error.
+        """
+        logger.info('Loading user data...')
+        try:
+            with open(filename, 'r', encoding='utf-8') as data_file:
+                self.user_data = json.load(data_file)
+        except Exception:  # TODO
+            self.user_data = None
+        logger.info('User data loaded')
+
+    def load_or_init_user_data(self, filename):
+        """
+        Loads user data from file `filename` and returns it,
+        or initializes new data if an error occurred
+        while loading data from file.
+        """
+        if filename is not None:
+            self.load_user_data(filename)
+            if self.user_data is None:
+                self.init_user_data()
+        else:
+            self.init_user_data()
 
     def save_data(self, filename):
         """
         Saves booking data to file `filename`.
         """
+        logger.info('Saving data...')
         self.booking_data.sort(
             key=lambda booking_data_item: booking_data_item[0])
         with open(filename, 'w', encoding='utf-8') as data_file:
             json.dump(self.booking_data, data_file)
+        logger.info('Data saved')
 
-    def save_all_data(self, user_id, data_filename, whitelist_filename):
+    def save_user_data(self, filename):
+        """
+        Saves user data to file `filename`.
+        """
+        logger.info('Saving user data...')
+        with open(filename, 'w', encoding='utf-8') as data_file:
+            json.dump(self.user_data, data_file)
+        logger.info('User data saved')
+
+    def save_all_data(self, user_id, data_filename, whitelist_filename,
+                      user_data_filename):
         """
         Command function.
         Saves booking data to file `data_filename` and whitelist to file
@@ -153,6 +199,23 @@ class BookingDB(object):
             raise BotNoAccess()
         self.save_data(data_filename)
         self.save_whitelist(whitelist_filename)
+        self.save_user_data(user_data_filename)
+
+    def update_user_data(self, user_id, chat_id, username):
+        """
+        Updates data for user with ID `user_id`, setting `chat_id` and
+        `username`.
+        """
+        for i in range(len(self.user_data)):
+            if self.user_data[i]['user_id'] == user_id:
+                self.user_data[i]['chat_id'] = chat_id
+                self.user_data[i]['username'] = username
+                return
+        self.user_data.append({
+            'user_id': user_id,
+            'chat_id': chat_id,
+            'username': username,
+        })
 
     def is_free_time(self, time_data, duration):
         """

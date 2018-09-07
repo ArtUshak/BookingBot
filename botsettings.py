@@ -7,7 +7,7 @@ import telebot
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)-15s %(message)s',
                     handlers=[logging.FileHandler(
-                                '../bookingbot-data/log.log'),
+                                '../BookingBot-data/log.log'),
                               logging.StreamHandler()])
 
 
@@ -36,14 +36,11 @@ cmd_text_timetable_unbook = 'Отменить бронирование'
 cmd_text_contactlist = 'Контакты'
 
 
-contactlist_file = '../bookingbot-data/contacts.txt'
+contactlist_file = '../BookingBot-data/contacts.txt'
 help_file = 'help.txt'
-data_file = '../bookingbot-data/booking.json'
-whitelist_file = '../bookingbot-data/whitelist.txt'
-adminlist_file = '../bookingbot-data/admins.txt'
-token_file = '../bookingbot-data/b1540-n38-token.txt'
-
-
-telebot.apihelper.proxy = {
-    'https': 'https://185.14.149.53:8080'
-}
+data_file = '../BookingBot-data/booking.json'
+whitelist_file = '../BookingBot-data/whitelist.txt'
+adminlist_file = '../BookingBot-data/admins.txt'
+token_file = '../BookingBot-data/b1540-n38-token.txt'
+proxy_file = '../BookingBot-data/proxy.txt'
+user_data_file = '../BookingBot-data/users.json'
