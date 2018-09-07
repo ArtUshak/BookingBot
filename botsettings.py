@@ -35,6 +35,7 @@ cmd_text_timetable_today = 'Получить на сегодня'
 cmd_text_timetable_book = 'Забронировать аудиторию'
 cmd_text_timetable_unbook = 'Отменить бронирование'
 cmd_text_contactlist = 'Контакты'
+cmd_text_help = 'Справка'
 
 
 contactlist_file = '../BookingBot-data/contacts.txt'

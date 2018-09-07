@@ -4,6 +4,7 @@ Telegram bot for booking auditorium (see `README.md`).
 """
 from datetime import datetime, timedelta
 import logging
+import re
 
 import telebot
 import telebot.types
@@ -172,6 +173,35 @@ def process_message_sender(message):
     return user_id
 
 
+inline_handlers = []
+
+
+def inline_handler(pattern):
+    def wrapper(func):
+        inline_handlers.append((re.compile(pattern), func,))
+        return func
+    return wrapper
+
+
+@bot.callback_query_handler(func=lambda call: True)
+def callback_inline(call):
+    for handler in inline_handlers:
+        match_result = handler[0].match(call.data)
+        if match_result is not None:
+            args = list(match_result.groups())
+            args.append(call)
+            handler[1](*args)
+            return
+    bot.send_message(call.message.chat.id, message_indev)
+
+
+@inline_handler(r'help:(\d+)')
+def process_button_help(sender_id, call):
+    chat_id = call.message.chat.id
+    keyboard = get_cmd_keyboard(chat_id)
+    bot.send_message(chat_id, message_help, reply_markup=keyboard)
+
+
 @bot.message_handler(commands=['start', 'help'])
 def process_cmd_help(message):
     """
@@ -180,11 +210,16 @@ def process_cmd_help(message):
     Syntax: `/start`
     Displays help text message.
     """
-    bot.send_message(message.chat.id, message_help)
-    # send_cmd_keyboard(message.chat.id, message_testing)
+    chat_id = message.chat.id
+    keyboard = get_cmd_keyboard(chat_id)
+    bot.send_message(chat_id, message_help, reply_markup=keyboard)
 
 
-def send_cmd_keyboard(chat_id, text):
+def get_cmd_keyboard(chat_id):
+    """
+    Creates inline keyboard for bot functions and returns it.
+    Requires parameter `chat_id`.
+    """
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(
         telebot.types.InlineKeyboardButton(
@@ -206,20 +241,11 @@ def send_cmd_keyboard(chat_id, text):
         telebot.types.InlineKeyboardButton(
             text=cmd_text_contactlist,
             callback_data='contactlist:{}'.format(str(chat_id))))
-    bot.send_message(chat_id, text, reply_markup=keyboard)
-
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_inline(call):
-    tokens = call.data.split(':')
-    if len(tokens) < 2:
-        return
-    if tokens[0] == 'timetable':
-        process_button_timetable(int(tokens[1]), call.message.chat.id)
-    if tokens[0] == 'contactlist':
-        process_button_contactlist(int(tokens[1]), call.message.chat.id)
-    else:
-        bot.send_message(message_indev, call.message.chat.id)
+    keyboard.add(
+        telebot.types.InlineKeyboardButton(
+            text=cmd_text_help,
+            callback_data='help:{}'.format(str(chat_id))))
+    return keyboard
 
 
 @bot.message_handler(commands=['book'])
@@ -337,13 +363,14 @@ def process_cmd_unbook_force(message):
     bot.send_message(message.chat.id, get_error_message(exc))
 
 
-def process_button_timetable(sender_id, chat_id):
+@inline_handler(r'timetable:(\d+)')
+def process_button_timetable(sender_id, call):
+    chat_id = call.message.chat.id
     logger.info('Called /timetable from user {}'.format(sender_id))
-    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
-    end_time = -1
     exc = None
     timetable = []
     start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
+    end_time = -1
     try:
         cmd_result_list = booking_db.get_timetable(sender_id, start_time,
                                                    end_time)
@@ -354,7 +381,32 @@ def process_button_timetable(sender_id, chat_id):
         exc = exception
     else:
         timetable = format_timetable(cmd_result_list)
-    bot.send_message(chat_id, get_error_message(exc, if_ok=timetable))
+    keyboard = get_cmd_keyboard(chat_id)
+    bot.send_message(chat_id, get_error_message(exc, if_ok=timetable),
+                     reply_markup=keyboard)
+
+
+@inline_handler(r'timetable_today:(\d+)')
+def process_button_timetable_today(sender_id, call):
+    chat_id = call.message.chat.id
+    logger.info('Called /timetable from user {}'.format(sender_id))
+    exc = None
+    timetable = []
+    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
+    end_time = start_time + 86400
+    try:
+        cmd_result_list = booking_db.get_timetable(sender_id, start_time,
+                                                   end_time)
+    except Exception as exception:
+        if not isinstance(exception, BotCommandException):
+            logger.error('Error ocurred when executing comand /timetable')
+            raise
+        exc = exception
+    else:
+        timetable = format_timetable(cmd_result_list)
+    keyboard = get_cmd_keyboard(chat_id)
+    bot.send_message(chat_id, get_error_message(exc, if_ok=timetable),
+                     reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['timetable'])
@@ -440,8 +492,11 @@ def process_cmd_logmyinfo(message):
             sender_id, message.from_user.username))
 
 
-def process_button_contactlist(sender_id, chat_id):
-    bot.send_message(chat_id, message_contact_list)
+@inline_handler(r'contactlist:(\d+)')
+def process_button_contactlist(sender_id, call):
+    chat_id = call.message.chat.id
+    keyboard = get_cmd_keyboard(chat_id)
+    bot.send_message(chat_id, message_contact_list, reply_markup=keyboard)
 
 
 @bot.message_handler(commands=['contactlist'])
