@@ -13,7 +13,7 @@ import booking
 from botsettings import *
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
-                        BotBookingNotFound)
+                        BotBookingNotFound, BotUsernameNotFound)
 
 
 logger = logging.getLogger('bot')
@@ -132,6 +132,8 @@ def get_error_message(exception, if_ok=None):
         return message_time_passed
     elif isinstance(exception, BotBookingNotFound):
         return message_booking_not_found
+    elif isinstance(exception, BotUsernameNotFound):
+        return message_username_not_found
     else:
         return message_misc_error
 
@@ -243,6 +245,10 @@ def get_cmd_keyboard(chat_id):
         telebot.types.InlineKeyboardButton(
             text=cmd_text_timetable_today,
             callback_data='timetable_today:{}'.format(str(chat_id))))
+    keyboard.add(
+        telebot.types.InlineKeyboardButton(
+            text=cmd_text_timetable_today,
+            callback_data='timetable_date:{}'.format(str(chat_id))))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_timetable_book,
@@ -543,13 +549,21 @@ def process_cmd_whitelist(message):
             sender_id,
             message.from_user.username))
     exc = None
-    msg_text = ''
+    msg_text = None
     try:
         if len(message.text.split()) == 1:
             whitelist = booking_db.get_whitelist(sender_id)
             msg_text = format_whitelist(whitelist)
         elif len(message.text.split()) == 3:
-            msg_text = message_indev  # TODO
+            words = message.text.split(' ', 3)
+            action_str = words[1].lower()
+            username = words[2]
+            if action_str == 'add':
+                booking_db.add_user_to_whitelist(sender_id, username)
+            elif action_str == 'remove':
+                booking_db.remove_user_from_whitelist(sender_id, username)
+            else:
+                raise BotBadInput()
         else:
             raise BotBadInput()
     except Exception as exception:

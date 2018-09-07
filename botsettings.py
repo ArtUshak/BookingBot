@@ -25,6 +25,8 @@ message_misc_error = 'Неизвестная ошибка.'
 message_time_occupied = 'Время занято.'
 message_time_passed = 'Время уже прошло.'
 message_booking_not_found = 'Событие не найдено.'
+message_username_not_found = ('Пользователь с таким именем не найден. Возможно'
+                              ' он ещё не начал диалог с ботом.')
 
 message_timetable_header = 'Расписание:'
 message_timetable_date_row = 'День {}'

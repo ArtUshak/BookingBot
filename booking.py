@@ -5,7 +5,7 @@ import logging
 
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
-                        BotBookingNotFound)
+                        BotBookingNotFound, BotUsernameNotFound)
 
 
 logger = logging.getLogger('bot')
@@ -334,10 +334,10 @@ class BookingDB(object):
     def get_whitelist(self, user_id):
         """
         Command function.
-        Returns whitelist as list of user names (or `<not registered>`
-        strings for users who are not present in user database).
-        If user with ID `user_id` do not have permissions to request
-        this action, it will not be performed and `BotNoAccess` will be
+        Returns whitelist as list of user names (or `<?>` strings for users
+        who are not present in user database).
+        If such with ID `user_id` do not have permissions to request this
+        action, it will not be performed and `BotNoAccess` will be
         raised.
         """
         if not self.is_admin(user_id):
@@ -351,6 +351,40 @@ class BookingDB(object):
                 whitelist_username = '<?>'
             result.append((whitelist_user_id, whitelist_username,))
         return result
+
+    def add_user_to_whitelist(self, user_id, target_username):
+        """
+        Command function.
+        Add user with name `target_username` to whitelist.
+        If such user could not be found, `BotUsernameNotFound` will be raised.
+        If user with ID `user_id` do not have permissions to request this
+        action, it will not be performed and `BotNoAccess` will be
+        raised.
+        """
+        if not self.is_admin(user_id):
+            raise BotNoAccess()
+        for other_user_id in self.user_data:
+            if self.user_data[other_user_id]['username'] == target_username:
+                self.whitelist.append(user_id)
+                return
+        raise BotUsernameNotFound()
+
+    def remove_user_from_whitelist(self, user_id, target_username):
+        """
+        Command function.
+        Removes user with name `target_username` from whitelist.
+        If such user could not be found, `BotUsernameNotFound` will be raised.
+        If user with ID `user_id` do not have permissions to request this
+        action, it will not be performed and `BotNoAccess` will be
+        raised.
+        """
+        if not self.is_admin(user_id):
+            raise BotNoAccess()
+        for other_user_id in self.user_data:
+            if self.user_data[other_user_id]['username'] == target_username:
+                self.whitelist.remove(user_id)
+                return
+        raise BotUsernameNotFound()
 
 
 def process_date(date_str):

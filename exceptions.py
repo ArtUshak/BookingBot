@@ -53,3 +53,11 @@ class BotBookingNotFound(BotCommandException):
     Failed to find booking item with given parameters.
     """
     pass
+
+
+class BotUsernameNotFound(BotCommandException):
+    """
+    Failed to find user with such username (or such user has not started
+    dialog with bot yet).
+    """
+    pass
