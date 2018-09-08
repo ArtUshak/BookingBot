@@ -11,8 +11,6 @@ from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
 logger = logging.getLogger('bot')
 
 minute_treshold = 15
-# TODO: use datetime module instead of seconds
-TIME_AXIS = datetime(1970, 1, 1)
 
 
 class BookingDB(object):
@@ -120,9 +118,12 @@ class BookingDB(object):
         logger.info('Loading data...')
         try:
             with open(filename, 'r', encoding='utf-8') as data_file:
-                self.booking_data = json.load(data_file)
-        except Exception:  # TODO
+                loaded_booking_data = json.load(data_file)
+                self.booking_data = list(map(deserialize_booking_item,
+                                             loaded_booking_data))
+        except FileNotFoundError:
             self.booking_data = None
+        print(self.booking_data)  # DEBUG
         logger.info('Data loaded')
 
     def init_data(self):
@@ -159,7 +160,7 @@ class BookingDB(object):
         try:
             with open(filename, 'r', encoding='utf-8') as data_file:
                 self.user_data = json.load(data_file)
-        except Exception:  # TODO
+        except FileNotFoundError:
             self.user_data = None
         logger.info('User data loaded')
 
@@ -184,7 +185,10 @@ class BookingDB(object):
         self.booking_data.sort(
             key=lambda booking_data_item: booking_data_item[0])
         with open(filename, 'w', encoding='utf-8') as data_file:
-            json.dump(self.booking_data, data_file)
+            serialized_data = list(map(serialize_booking_item,
+                                       self.booking_data))
+            json.dump(serialized_data, data_file, sort_keys=True,
+                      default=str)
         logger.info('Data saved')
 
     def save_user_data(self, filename):
@@ -257,7 +261,7 @@ class BookingDB(object):
             raise BotNoAccess()
         if not self.is_free_time(time_data, duration):
             raise BotTimeOccupied()
-        if time_data <= (datetime.now() - TIME_AXIS).total_seconds():
+        if time_data <= datetime.now():
             raise BotTimePassed()
         self.booking_data.append([time_data, duration, description, user_id])
         self.booking_data.sort(
@@ -300,7 +304,7 @@ class BookingDB(object):
             if not self.is_admin(user_id):
                 raise BotNoAccess()
         if not force:
-            if time_data <= (datetime.now() - TIME_AXIS).total_seconds():
+            if time_data <= datetime.now():
                 raise BotTimePassed()
         booking_id = self.get_booking(time_data)
         if booking_id < 0:
@@ -312,7 +316,7 @@ class BookingDB(object):
         self.booking_data.sort(
             key=lambda booking_data_item: booking_data_item[0])
 
-    def get_timetable(self, user_id, start_time_data=-1, end_time_data=-1):
+    def get_timetable(self, user_id, start_time_data=None, end_time_data=None):
         """
         Returns timetable, list of booking items starting from
         `start_time_data` (or from the beginning if `start_time_data` is
@@ -321,11 +325,11 @@ class BookingDB(object):
         """
         result = []
         for booking_data_item in self.booking_data:
-            if start_time_data >= 0:
+            if start_time_data is not None:
                 if (booking_data_item[0] + booking_data_item[1]
                         < start_time_data):
                     continue
-            if end_time_data >= 0:
+            if end_time_data is not None:
                 if booking_data_item[0] > end_time_data:
                     continue
             result += [booking_data_item]
@@ -389,9 +393,8 @@ class BookingDB(object):
 
 def process_date(date_str):
     """
-    Parses date data from given date string `date_str` and returns
-    number of seconds between that date and `TIME_AXIS`
-    (1970-01-01 00:00).
+    Parses date data from given date string `date_str` and returns `datetime`
+    object.
     `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
     or `DD.MM`.
     """
@@ -410,14 +413,13 @@ def process_date(date_str):
     if result.year == 1900:
         result = datetime(
             datetime.today().year, result.month, result.day)
-    return int((result - TIME_AXIS).total_seconds())
+    return result
 
 
 def process_date_time(date_str, time_str):
     """
-    Parses date and time data from given date string `date_str`
-    and time string `time_str` and returns number of seconds
-    between that moment and `TIME_AXIS` (the 1970-01-01 00:00).
+    Parses date and time data from given date string `date_str` and time
+    string `time_str` and returns `datetime.datetime` object.
     `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
     or `DD.MM`.
     `time_str` could be in formats `hh:mm` or `hh:mm:ss`.
@@ -447,13 +449,13 @@ def process_date_time(date_str, time_str):
         result = datetime(
             result.year, result.month, result.day, result.hour,
             (result.minute // minute_treshold) * minute_treshold)
-    return int((result - TIME_AXIS).total_seconds())
+    return result
 
 
 def process_time(time_str):
     """
     Parses time duration from given time string `time_str` and
-    returns it as number of seconds.
+    returns `datetime.timedelta` object.
     `time_str` could be in formats `minutes:seconds` or simply
     `seconds`.
     """
@@ -468,4 +470,19 @@ def process_time(time_str):
             minutes=((int(time_str_tokens[1]) // minute_treshold)
                      * minute_treshold))
 
-    return int(data_timedelta.total_seconds())
+    return data_timedelta
+
+
+def serialize_booking_item(data):
+    start_date, duration, description, user_id = data
+    return (start_date.isoformat(), duration.total_seconds(), description,
+            user_id)
+
+
+def deserialize_booking_item(raw_data):
+    start_date_str, duration_str, description, user_id = raw_data
+    duration_secs = int(duration_str)
+    return (datetime.fromisoformat(start_date_str),
+            timedelta(days=duration_secs // 86400,
+            seconds=duration_secs % 86400),
+            description, user_id)

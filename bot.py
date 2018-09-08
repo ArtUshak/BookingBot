@@ -92,23 +92,6 @@ bot = telebot.TeleBot(token)
 logger.info('Bot instance created')
 
 
-def get_timedelta(seconds):
-    """
-    Returns `datetime.timedelta` object from the seconds number
-    `seconds`.
-    """
-    return timedelta(days=seconds // 86400,
-                     seconds=seconds % 86400)
-
-
-def get_datetime(seconds):
-    """
-    Returns `datetime.datetime` object with the `seconds` seconds
-    passed after `booking.TIME_AXIS` (1970-01-01 00:00).
-    """
-    return booking.TIME_AXIS + get_timedelta(seconds)
-
-
 def get_error_message(exception, if_ok=None):
     """
     Returns error message based on exception `exception`.
@@ -149,15 +132,14 @@ def format_timetable(timetable_data):
     date_str = None
     result = message_timetable_header + '\n'
     for timetable_item in timetable_data:
-        curr_date_str = get_datetime(timetable_item[0]).strftime('%Y-%m-%d')
+        curr_date_str = timetable_item[0].strftime('%Y-%m-%d')
         if date_str != curr_date_str:
             date_str = curr_date_str
             result += message_timetable_date_row.format(date_str)
             result += '\n'
         result += message_timetable_row.format(
-            get_datetime(timetable_item[0]).strftime('%H:%M'),
-            (get_datetime(timetable_item[0]
-             + timetable_item[1]).strftime('%H:%M')),
+            timetable_item[0].strftime('%H:%M'),
+            ((timetable_item[0] + timetable_item[1]).strftime('%H:%M')),
             timetable_item[2]
         )
         result += '\n'
@@ -395,8 +377,8 @@ def process_button_timetable(sender_id, call):
     logger.info('Called /timetable from user {}'.format(sender_id))
     exc = None
     timetable = []
-    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
-    end_time = -1
+    start_time = datetime.today()
+    end_time = None
     try:
         cmd_result_list = booking_db.get_timetable(sender_id, start_time,
                                                    end_time)
@@ -418,8 +400,8 @@ def process_button_timetable_today(sender_id, call):
     logger.info('Called /timetable from user {}'.format(sender_id))
     exc = None
     timetable = []
-    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
-    end_time = start_time + 86400
+    start_time = datetime.today()
+    end_time = start_time + timedelta(days=1)
     try:
         cmd_result_list = booking_db.get_timetable(sender_id, start_time,
                                                    end_time)
@@ -451,21 +433,19 @@ def process_cmd_timetable(message):
         'Called /timetable from user {} ({})'.format(
             sender_id,
             message.from_user.username))
-    start_time = (datetime.today() - booking.TIME_AXIS).total_seconds()
-    end_time = -1
+    start_time = datetime.today()
+    end_time = None
     exc = None
     timetable = []
     try:
         if len(message.text.split()) >= 2:
             words = message.text.split(' ', 2)
             if words[1].lower() == 'today':
-                end_time = (
-                    (datetime.today() - booking.TIME_AXIS).total_seconds()
-                    + 86400)
+                end_time = datetime.today() + timedelta(days=1)
             else:
                 try:
                     start_time = booking.process_date(words[1])
-                    end_time = start_time + 86400
+                    end_time = start_time + timedelta(days=1)
                 except ValueError:
                     raise BotBadDateFormat()
         cmd_result_list = booking_db.get_timetable(sender_id, start_time,

@@ -119,10 +119,10 @@
         },
         "pytelegrambotapi": {
             "hashes": [
-                "sha256:8059d10d2e8574bec77bd575b1bd948521f2c9870f3ff2a1bfc63482d1e2f62c"
+                "sha256:a4e8a98f97508a1c502c5a357536cf6c6e40dc4e5d4e58ebaedfba2d4f637e03"
             ],
             "index": "pypi",
-            "version": "==3.6.5"
+            "version": "==3.6.6"
         },
         "requests": {
             "hashes": [
