@@ -10,7 +10,20 @@ import telebot
 import telebot.types
 
 import booking
-from botsettings import *
+from botsettings import (message_indev, message_operation_ok,
+                         message_bad_input, message_bad_date_format,
+                         message_no_access, message_misc_error,
+                         message_time_occupied, message_time_passed,
+                         message_booking_not_found, message_username_not_found,
+                         message_timetable_header, message_timetable_date_row,
+                         message_timetable_row, message_whitelist_header,
+                         message_whitelist_row,
+                         cmd_text_timetable, cmd_text_timetable_today,
+                         cmd_text_timetable_book, cmd_text_timetable_unbook,
+                         cmd_text_contactlist, cmd_text_help,
+                         contactlist_file, help_file, data_file,
+                         whitelist_file, adminlist_file, token_file,
+                         proxy_file, user_data_file)
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
                         BotBookingNotFound, BotUsernameNotFound)
@@ -376,7 +389,7 @@ def process_button_timetable(sender_id, call):
     chat_id = call.message.chat.id
     logger.info('Called /timetable from user {}'.format(sender_id))
     exc = None
-    timetable = []
+    timetable = None
     start_time = datetime.today()
     end_time = None
     try:
@@ -459,7 +472,7 @@ def process_cmd_timetable(message):
         timetable = format_timetable(cmd_result_list)
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=timetable))
-    booking_db.save_whitelist(whitelist_file)
+    booking_db.save_user_data(user_data_file)
 
 
 @bot.message_handler(commands=['savedata'])
@@ -497,7 +510,7 @@ def process_cmd_logmyinfo(message):
     logger.info(
         'Called /logmyinfo from user {} ({})'.format(
             sender_id, message.from_user.username))
-    booking_db.save_whitelist(whitelist_file)
+    booking_db.save_user_data(user_data_file)
 
 
 @inline_handler(r'contactlist:(\d+)')
@@ -546,6 +559,7 @@ def process_cmd_whitelist(message):
                 raise BotBadInput()
         else:
             raise BotBadInput()
+        booking_db.save_all_data(-1, data_file, whitelist_file, user_data_file)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
             logger.error('Error ocurred when executing comand /timetable')
@@ -553,7 +567,6 @@ def process_cmd_whitelist(message):
         exc = exception
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=msg_text))
-    booking_db.save_whitelist(whitelist_file)
 
 
 '''
