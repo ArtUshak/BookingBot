@@ -387,7 +387,7 @@ def process_cmd_unbook_force(message):
 @inline_handler(r'timetable:(\d+)')
 def process_button_timetable(sender_id, call):
     chat_id = call.message.chat.id
-    logger.info('Called /timetable from user {}'.format(sender_id))
+    logger.info('Called button timetable from {}'.format(sender_id))
     exc = None
     timetable = None
     start_time = datetime.today()
@@ -397,7 +397,7 @@ def process_button_timetable(sender_id, call):
                                                    end_time)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /timetable')
+            logger.error('Error ocurred when executing button timetable')
             raise
         exc = exception
     else:
@@ -410,7 +410,7 @@ def process_button_timetable(sender_id, call):
 @inline_handler(r'timetable_today:(\d+)')
 def process_button_timetable_today(sender_id, call):
     chat_id = call.message.chat.id
-    logger.info('Called /timetable from user {}'.format(sender_id))
+    logger.info('Called button timetable_today from user {}'.format(sender_id))
     exc = None
     timetable = []
     start_time = datetime.today()
@@ -420,7 +420,7 @@ def process_button_timetable_today(sender_id, call):
                                                    end_time)
     except Exception as exception:
         if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /timetable')
+            logger.error('Error ocurred when executing button timetable_today')
             raise
         exc = exception
     else:
@@ -522,6 +522,11 @@ def process_button_contactlist(sender_id, call):
 
 @bot.message_handler(commands=['contactlist'])
 def process_cmd_contactlist(message):
+    """
+    Command `/contactlist`
+    Syntax: `/contactlist`
+    Displays contact list text message.
+    """
     bot.send_message(message.chat.id, message_contact_list)
 
 
