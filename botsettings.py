@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+"""Settings for bot."""
+import locale
 import logging
 
 import telebot
@@ -11,6 +13,7 @@ logging.basicConfig(level=logging.INFO,
                     handlers=[logging.FileHandler(log_file),
                               logging.StreamHandler()])
 
+locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF8',))
 
 message_bad_cmd = ('Команда не найдена. Для получения списка команд введите '
                    '/help.')
@@ -37,10 +40,13 @@ message_whitelist_row = '{1} (ID {0})'
 
 cmd_text_timetable = 'Получить расписание'
 cmd_text_timetable_today = 'Получить на сегодня'
+cmd_text_timetable_date = 'Получить на дату'
 cmd_text_timetable_book = 'Забронировать аудиторию'
 cmd_text_timetable_unbook = 'Отменить бронирование'
 cmd_text_contactlist = 'Контакты'
 cmd_text_help = 'Справка'
+
+message_timetable_date_0 = 'Введите дату через календарь'
 
 
 contactlist_file = '../BookingBot-data/contacts.txt'

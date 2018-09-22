@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+"""Classes and functions to store bot data and manage it."""
+from abc import abstractmethod
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 import json
 import logging
@@ -13,11 +16,70 @@ logger = logging.getLogger('bot')
 minute_treshold = 15
 
 
+@dataclass
+class User(object):
+    """Data for bot user (including Telegram user ID, etc)."""
+
+    user_id: int
+    chat_id: int
+    username: str
+    input_line_type: str = None
+    input_line_data: list = None
+    input_date: bool = False
+    input_date_year: int = None
+    input_date_month: int = None
+
+    def start_input_line(self, line_type):
+        if line_type is not None:
+            self.input_line_type = line_type
+            self.input_line_data = []
+            self.input_date_init()
+        else:
+            self.input_line_type = None
+            self.input_line_data = None
+            self.input_date_clear()
+
+    def input_date_init(self):
+        curr_date = datetime.today()
+        self.input_date = True
+        self.input_date_year = curr_date.year
+        self.input_date_month = curr_date.month
+
+    def input_date_clear(self):
+        self.input_date = False
+        self.input_date_year = None
+        self.input_date_month = None
+
+    def input_date_next_month(self):
+        if not self.input_date:
+            raise ValueError()
+        self.input_date_month += 1
+        if self.input_date_month > 12:
+            self.input_date_year += 1
+            self.input_date_month = 1
+
+    def input_date_previous_month(self):
+        if not self.input_date:
+            raise ValueError()
+        self.input_date_month -= 1
+        if self.input_date_month < 1:
+            self.input_date_year -= 1
+            self.input_date_month = 12
+
+
 class BookingDB(object):
+    """
+    All bot data.
+
+    Class containing all booking data, users data, whitelist and proving
+    methods for getting and modifying that data.
+    """
+
     def __init__(self, adminlist_filename, data_filename,
                  whitelist_filename, user_data_filename):
         """
-        Initializes booking data object.
+        Initialize booking data object.
+
         Administrator list will be loaded from `adminlist_filename`. If this
         file do not exist, it will be initialized empty.
         Data will be loaded from `data_filename`. If this file do not exist,
@@ -41,9 +103,7 @@ class BookingDB(object):
         self.load_or_init_user_data(user_data_filename)
 
     def load_admins(self, filename):
-        """
-        Loads administrator list from file `filename`.
-        """
+        """Load administrator list from file `filename`."""
         logger.info('Loading admin list...')
         self.admins = []
         with open(filename, 'r', encoding='utf-8') as admins_file:
@@ -58,7 +118,9 @@ class BookingDB(object):
 
     def load_whitelist(self, filename):
         """
-        Loads whitelist from file `filename`, returns empty whitelist
+        Load whitelist.
+
+        Load whitelist from file `filename`, return empty whitelist
         if an error occurred while reading file.
         """
         logger.info('Loading whitelist...')
@@ -83,9 +145,7 @@ class BookingDB(object):
         logger.info('Whitelist loaded')
 
     def save_whitelist(self, filename):
-        """
-        Saves whitelist to file `filename`.
-        """
+        """Save whitelist to file `filename`."""
         logger.info('Saving whitelist...')
         with open(filename, 'w', encoding='utf-8') as whitelist_file:
             for whitelist_item in self.whitelist:
@@ -94,7 +154,9 @@ class BookingDB(object):
 
     def is_admin(self, user_id):
         """
-        Returns `True` if user with ID `user_id` is administrator,
+        Check whehter user is administrator.
+
+        Return `True` if user with ID `user_id` is administrator,
         otherwise `False`.
         """
         if user_id < 0:
@@ -103,7 +165,9 @@ class BookingDB(object):
 
     def is_in_whitelist(self, user_id):
         """
-        Returns `True` if user with ID `user_id` is in whitelist,
+        Check whether user is in whitelist.
+
+        Return `True` if user with ID `user_id` is in whitelist,
         otherwise `False`.
         """
         if self.is_admin(user_id):
@@ -112,8 +176,10 @@ class BookingDB(object):
 
     def load_data(self, filename):
         """
+        Load booking data.
+
         Tries to load booking data from file `filename`,
-        returns None on any error.
+        return None on any error.
         """
         logger.info('Loading data...')
         try:
@@ -123,19 +189,18 @@ class BookingDB(object):
                                              loaded_booking_data))
         except FileNotFoundError:
             self.booking_data = None
-        print(self.booking_data)  # DEBUG
         logger.info('Data loaded')
 
     def init_data(self):
-        """
-        Initializes new empty booking data.
-        """
+        """Initialize new empty booking data."""
         self.booking_data = []
 
     def load_or_init_data(self, filename):
         """
-        Loads booking data from file `filename` and returns it,
-        or initializes new data if an error occurred
+        Load booking data or initialize it.
+
+        Load booking data from file `filename` and return it,
+        or initalize new data if an error occurred
         while loading data from file.
         """
         if filename is not None:
@@ -146,28 +211,34 @@ class BookingDB(object):
             self.init_data()
 
     def init_user_data(self):
-        """
-        Initializes new empty user data.
-        """
+        """Initialize new empty user data."""
         self.user_data = {}
 
     def load_user_data(self, filename):
         """
+        Load user data.
+
         Tries to load user data from file `filename`,
-        returns None on any error.
+        return None on any error.
         """
         logger.info('Loading user data...')
         try:
             with open(filename, 'r', encoding='utf-8') as data_file:
-                self.user_data = json.load(data_file)
+                raw_user_data = json.load(data_file)
+            self.user_data = {user.user_id: user
+                              for user in
+                              map(lambda data: User(**data),
+                                  raw_user_data)}
         except FileNotFoundError:
             self.user_data = None
         logger.info('User data loaded')
 
     def load_or_init_user_data(self, filename):
         """
-        Loads user data from file `filename` and returns it,
-        or initializes new data if an error occurred
+        Load user data or initialize it.
+
+        Load user data from file `filename` and return it,
+        or initalize new data if an error occurred
         while loading data from file.
         """
         if filename is not None:
@@ -178,9 +249,7 @@ class BookingDB(object):
             self.init_user_data()
 
     def save_data(self, filename):
-        """
-        Saves booking data to file `filename`.
-        """
+        """Save booking data to file `filename`."""
         logger.info('Saving data...')
         self.booking_data.sort(
             key=lambda booking_data_item: booking_data_item[0])
@@ -192,19 +261,19 @@ class BookingDB(object):
         logger.info('Data saved')
 
     def save_user_data(self, filename):
-        """
-        Saves user data to file `filename`.
-        """
+        """Save user data to file `filename`."""
         logger.info('Saving user data...')
         with open(filename, 'w', encoding='utf-8') as data_file:
-            json.dump(self.user_data, data_file)
+            serialized_user_data = list(map(asdict, self.user_data.values()))
+            json.dump(serialized_user_data, data_file)
         logger.info('User data saved')
 
     def save_all_data(self, user_id, data_filename, whitelist_filename,
                       user_data_filename):
         """
         Command function.
-        Saves booking data to file `data_filename` and whitelist to file
+
+        Save booking data to file `data_filename` and whitelist to file
         `whitelist_filename`.
         If user with ID `user_id` do not have permissions to request
         this action, it will not be performed and `BotNoAccess` will be
@@ -218,17 +287,38 @@ class BookingDB(object):
 
     def update_user_data(self, user_id, chat_id, username):
         """
-        Updates data for user with ID `user_id`, setting `chat_id` and
+        Update user data.
+
+        Update data for user with ID `user_id`, setting `chat_id` and
         `username`.
         """
-        self.user_data[user_id] = {
-            'username': username,
-            'chat_id': chat_id,
-        }
+        if user_id in self.user_data:
+            self.user_data[user_id].username = username
+            self.user_data[user_id].chat_id
+        else:
+            self.user_data[user_id] = User(user_id, chat_id, username)
+
+    def get_user(self, user_id):
+        """Return user object with ID `user_id`."""
+        return self.user_data[user_id]
+
+    def get_user_by_chat_id(self, chat_id):
+        """
+        Return user by chat ID.
+
+        Return user object with chat ID `chat_id`, raise ValueError if such
+        user could not be found.
+        """
+        for user in self.user_data.values():
+            if user.chat_id == chat_id:
+                return user
+        return None
 
     def is_free_time(self, time_data, duration):
         """
-        Checks whether time starting from `time_data` with duration
+        Check whether time span is free.
+
+        Check whether time starting from `time_data` with duration
         `duration` is free (not intersecting with any other booking
         items).
         If it is free, `True` is returned, otherwise `False`.
@@ -247,7 +337,9 @@ class BookingDB(object):
 
     def book(self, user_id, time_data, duration, description):
         """
-        Creates booking item for user with ID `user_id`, with time
+        Create booking item.
+
+        Create booking item for user with ID `user_id`, with time
         `time_data`, duration `duration` and description `description`.
         If user do not have permissions to request this action, it will
         not be performed and `BotNoAccess` will be raised.
@@ -269,7 +361,9 @@ class BookingDB(object):
 
     def get_booking(self, time_data):
         """
-        Returns array index of booking item which intersects with time
+        Get booking for time.
+
+        Return array index of booking item which intersects with time
         `time_data`.
         If such item is not found, `-1` is returned.
         """
@@ -286,7 +380,9 @@ class BookingDB(object):
 
     def unbook(self, user_id, time_data, force=False):
         """
-        Removes booking which intersects with time `time_data`.
+        Remove booking for time.
+
+        Remove booking which intersects with time `time_data`.
         If the parameter `force` is set to `True`, removing of past
         bookings or other user's bookings is allowed (if user have right
         permissions).
@@ -318,7 +414,9 @@ class BookingDB(object):
 
     def get_timetable(self, user_id, start_time_data=None, end_time_data=None):
         """
-        Returns timetable, list of booking items starting from
+        Get timetable for time span.
+
+        Return timetable, list of booking items starting from
         `start_time_data` (or from the beginning if `start_time_data` is
         less than 0) and ending on `end_time_data` (or not ending if
         `end_time_data` is less than 0).
@@ -332,13 +430,14 @@ class BookingDB(object):
             if end_time_data is not None:
                 if booking_data_item[0] > end_time_data:
                     continue
-            result += [booking_data_item]
+            result.append(booking_data_item)
         return result
 
     def get_whitelist(self, user_id):
         """
         Command function.
-        Returns whitelist as list of user names (or `<?>` strings for users
+
+        Return whitelist as list of user names (or `<?>` strings for users
         who are not present in user database).
         If such with ID `user_id` do not have permissions to request this
         action, it will not be performed and `BotNoAccess` will be
@@ -350,7 +449,7 @@ class BookingDB(object):
         for whitelist_user_id in self.whitelist:
             if whitelist_user_id in self.user_data:
                 whitelist_username = (
-                    '@' + self.user_data[whitelist_user_id]['username'])
+                    '@' + self.user_data[whitelist_user_id].username)
             else:
                 whitelist_username = '<?>'
             result.append((whitelist_user_id, whitelist_username,))
@@ -359,6 +458,7 @@ class BookingDB(object):
     def add_user_to_whitelist(self, user_id, target_username):
         """
         Command function.
+
         Add user with name `target_username` to whitelist.
         If such user could not be found, `BotUsernameNotFound` will be raised.
         If user with ID `user_id` do not have permissions to request this
@@ -376,7 +476,8 @@ class BookingDB(object):
     def remove_user_from_whitelist(self, user_id, target_username):
         """
         Command function.
-        Removes user with name `target_username` from whitelist.
+
+        Remove user with name `target_username` from whitelist.
         If such user could not be found, `BotUsernameNotFound` will be raised.
         If user with ID `user_id` do not have permissions to request this
         action, it will not be performed and `BotNoAccess` will be
@@ -393,7 +494,9 @@ class BookingDB(object):
 
 def process_date(date_str):
     """
-    Parses date data from given date string `date_str` and returns `datetime`
+    Parse date from string.
+
+    Parse date data from given date string `date_str` and return `datetime`
     object.
     `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
     or `DD.MM`.
@@ -418,8 +521,10 @@ def process_date(date_str):
 
 def process_date_time(date_str, time_str):
     """
-    Parses date and time data from given date string `date_str` and time
-    string `time_str` and returns `datetime.datetime` object.
+    Parse date and time from string.
+
+    Parse date and time data from given date string `date_str` and time
+    string `time_str` and return `datetime.datetime` object.
     `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
     or `DD.MM`.
     `time_str` could be in formats `hh:mm` or `hh:mm:ss`.
@@ -454,8 +559,10 @@ def process_date_time(date_str, time_str):
 
 def process_time(time_str):
     """
-    Parses time duration from given time string `time_str` and
-    returns `datetime.timedelta` object.
+    Parse time duration from string.
+
+    Parse time duration from given time string `time_str` and
+    return `datetime.timedelta` object.
     `time_str` could be in formats `minutes:seconds` or simply
     `seconds`.
     """
@@ -474,12 +581,14 @@ def process_time(time_str):
 
 
 def serialize_booking_item(data):
+    """Convert booking item data to JSON-dumpable format."""
     start_date, duration, description, user_id = data
     return (start_date.isoformat(), duration.total_seconds(), description,
             user_id)
 
 
 def deserialize_booking_item(raw_data):
+    """Convert booking item data from JSON-loaded format."""
     start_date_str, duration_str, description, user_id = raw_data
     duration_secs = int(duration_str)
     return (datetime.fromisoformat(start_date_str),

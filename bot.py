@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-"""
-Telegram bot for booking auditorium (see `README.md`).
-"""
+"""Telegram bot for booking auditorium (see `README.md`)."""
+import calendar
 from datetime import datetime, timedelta
 import logging
 import re
@@ -19,8 +18,10 @@ from botsettings import (message_indev, message_operation_ok,
                          message_timetable_row, message_whitelist_header,
                          message_whitelist_row,
                          cmd_text_timetable, cmd_text_timetable_today,
+                         cmd_text_timetable_date,
                          cmd_text_timetable_book, cmd_text_timetable_unbook,
                          cmd_text_contactlist, cmd_text_help,
+                         message_timetable_date_0,
                          contactlist_file, help_file, data_file,
                          whitelist_file, adminlist_file, token_file,
                          proxy_file, user_data_file)
@@ -34,7 +35,9 @@ logger = logging.getLogger('bot')
 
 def get_help(help_filename):
     """
-    Loads content of help text file `help_filename` and returns it.
+    Load help text.
+
+    Load content of help text file `help_filename` and return it.
     """
     logger.info('Loading help text...')
     with open(help_filename, encoding='utf-8') as help_file:
@@ -44,8 +47,10 @@ def get_help(help_filename):
 
 def get_contactlist(contactlist_filename):
     """
-    Loads content of contact list text file `help_filename` and
-    returns it.
+    Load contact list text.
+
+    Load content of contact list text file `help_filename` and
+    return it.
     """
     logger.info('Loading contact list...')
     with open(contactlist_filename, encoding='utf-8') \
@@ -56,8 +61,10 @@ def get_contactlist(contactlist_filename):
 
 def get_token(filename):
     """
-    Loads token from from first line of file `filename` and
-    returns it, without leading and trailing whitespaces.
+    Load token.
+
+    Load token from from first line of file `filename` and
+    return it, without leading and trailing whitespaces.
     """
     logger.info('Loading token...')
     with open(filename, encoding='utf-8') as token_file:
@@ -67,8 +74,10 @@ def get_token(filename):
 
 def get_proxy(filename):
     """
-    Loads proxy URL from from first line of file `filename` and
-    returns it, without leading and trailing whitespaces.
+    Load proxy URL.
+
+    Load proxy URL from from first line of file `filename` and
+    return it, without leading and trailing whitespaces.
     """
     logger.info('Loading proxy data...')
     with open(filename, encoding='utf-8') as token_file:
@@ -107,9 +116,10 @@ logger.info('Bot instance created')
 
 def get_error_message(exception, if_ok=None):
     """
-    Returns error message based on exception `exception`.
-    If `exception` is `None`, it returns `if_ok`. If it is `None` too,
-    it returns default success message.
+    Return error message based on exception `exception`.
+
+    If `exception` is `None`, it return `if_ok`. If it is `None` too,
+    it return default success message.
     """
     if exception is None:
         if if_ok is None:
@@ -136,7 +146,8 @@ def get_error_message(exception, if_ok=None):
 
 def format_timetable(timetable_data):
     """
-    Returns formatted timetable `timetable_data` as string.
+    Return formatted timetable `timetable_data` as string.
+
     Timetable is given as a list of booking items.
     In resulting string each booking item should be placed on
     different line, with data about start and end time and
@@ -161,7 +172,8 @@ def format_timetable(timetable_data):
 
 def format_whitelist(whitelist):
     """
-    Returns formatted whitelist `whitelist` as string.
+    Return formatted whitelist `whitelist` as string.
+
     Whitelist is given as a list of tuples of user IDs and usernames.
     In resulting string each user should be placed on
     different line.
@@ -175,7 +187,9 @@ def format_whitelist(whitelist):
 
 def process_message_sender(message):
     """
-    Processes `message`, updates user data and retuns user id from `message`.
+    Process message and update user data.
+
+    Process `message`, update user data and return user id from `message`.
     """
     chat_id = message.chat.id
     user_id = message.from_user.id
@@ -184,89 +198,121 @@ def process_message_sender(message):
     return user_id
 
 
-inline_handlers = []
+@bot.callback_query_handler(func=lambda call: call.data == 'help')
+def process_button_help(call):
+    """
+    Button `help`.
 
-
-def inline_handler(pattern):
-    def wrapper(func):
-        inline_handlers.append((re.compile(pattern), func,))
-        return func
-    return wrapper
-
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_inline(call):
-    for handler in inline_handlers:
-        match_result = handler[0].match(call.data)
-        if match_result is not None:
-            args = list(match_result.groups())
-            args.append(call)
-            handler[1](*args)
-            return
-    bot.send_message(call.message.chat.id, message_indev)
-
-
-@inline_handler(r'help:(\d+)')
-def process_button_help(sender_id, call):
+    Display help text message.
+    """
     chat_id = call.message.chat.id
-    keyboard = get_cmd_keyboard(chat_id)
+    keyboard = get_cmd_keyboard()
     bot.send_message(chat_id, message_help, reply_markup=keyboard)
+    bot.answer_callback_query(call.id, text='')
 
 
 @bot.message_handler(commands=['start', 'help'])
 def process_cmd_help(message):
     """
-    Command `/help`
+    Command `/help`.
+
     Syntax: `/help`
     Syntax: `/start`
-    Displays help text message.
+    Display help text message.
     """
     chat_id = message.chat.id
-    keyboard = get_cmd_keyboard(chat_id)
+    keyboard = get_cmd_keyboard()
     bot.send_message(chat_id, message_help, reply_markup=keyboard)
 
 
-def get_cmd_keyboard(chat_id):
+# Taken from https://github.com/unmonoqueteclea/calendar-telegram
+def get_calendar(year, month):
     """
-    Creates inline keyboard for bot functions and returns it.
-    Requires parameter `chat_id`.
+    Create inline keyboard for calendar and return it.
+
+    Calendar will be created for `year` and `month`.
     """
+    markup = telebot.types.InlineKeyboardMarkup()
+
+    # First row - Month and Year
+    row = []
+    row.append(
+        telebot.types.InlineKeyboardButton(
+            calendar.month_name[month] + ' ' + str(year),
+            callback_data='ignore'))
+    markup.row(*row)
+
+    # Second row - Week Days
+    week_days = list(map(lambda day_name: day_name[0], calendar.day_name))
+    row = []
+    for day in week_days:
+        row.append(telebot.types.InlineKeyboardButton(
+            day, callback_data='ignore'))
+    markup.row(*row)
+
+    my_calendar = calendar.monthcalendar(year, month)
+    for week in my_calendar:
+        row = []
+        for day in week:
+            if day == 0:
+                row.append(telebot.types.InlineKeyboardButton(
+                    ' ', callback_data='ignore'))
+            else:
+                row.append(telebot.types.InlineKeyboardButton(
+                    str(day), callback_data='calendar_day:{}'.format(day)))
+        markup.row(*row)
+
+    # Last row - Buttons
+    row = []
+    row.append(telebot.types.InlineKeyboardButton(
+        '<', callback_data='previous_month'))
+    row.append(telebot.types.InlineKeyboardButton(
+        ' ', callback_data='ignore'))
+    row.append(telebot.types.InlineKeyboardButton(
+        '>', callback_data='next_month'))
+    markup.row(*row)
+    return markup
+
+
+def get_cmd_keyboard():
+    """Create inline keyboard for bot functions and return it."""
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_timetable,
-            callback_data='timetable:{}'.format(str(chat_id))))
+            callback_data='timetable'))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_timetable_today,
-            callback_data='timetable_today:{}'.format(str(chat_id))))
+            callback_data='timetable_today'))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
-            text=cmd_text_timetable_today,
-            callback_data='timetable_date:{}'.format(str(chat_id))))
+            text=cmd_text_timetable_date,
+            callback_data='timetable_date'))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_timetable_book,
-            callback_data='book:{}'.format(str(chat_id))))
+            callback_data='book'))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_timetable_unbook,
-            callback_data='unbook:{}'.format(str(chat_id))))
+            callback_data='unbook'))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_contactlist,
-            callback_data='contactlist:{}'.format(str(chat_id))))
+            callback_data='contactlist'))
     keyboard.add(
         telebot.types.InlineKeyboardButton(
             text=cmd_text_help,
-            callback_data='help:{}'.format(str(chat_id))))
+            callback_data='help'))
     return keyboard
 
 
 @bot.message_handler(commands=['book'])
 def process_cmd_book(message):
     """
-    Command `/book`
+    Command `/book`.
+
     Syntax: `/book <DATE> <TIME> <DURATION> <DESCRIPTION>`
     Adds new booking item starting from moment `<DATE> <TIME>` and
     ending at moment `<DATE> <TIME> + <DURATION>` with description
@@ -299,20 +345,21 @@ def process_cmd_book(message):
             booking_db.book(sender_id, time, duration, description)
         booking_db.save_all_data(-1, data_file, whitelist_file,
                                  user_data_file)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /book')
-            raise
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing command')
+        raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
 
 @bot.message_handler(commands=['unbook'])
 def process_cmd_unbook(message):
     """
-    Command `/unbook`
+    Command `/unbook`.
+
     Syntax: `/unbook <DATE> <TIME>`
-    Removes booking that intersect with moment `<DATE> <TIME>`. Does not
+    Remove booking that intersect with moment `<DATE> <TIME>`. Do not
     remove booking if it was not added by current user or if it has
     passed.
     """
@@ -337,20 +384,21 @@ def process_cmd_unbook(message):
             booking_db.unbook(sender_id, time)
         booking_db.save_all_data(-1, data_file, whitelist_file,
                                  user_data_file)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /unbook')
-            raise
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing command')
+        raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
 
 @bot.message_handler(commands=['unbook_force'])
 def process_cmd_unbook_force(message):
     """
-    Command `/unbook_force`
+    Command `/unbook_force`.
+
     Syntax: `/unbook <DATE> <TIME>`
-    Removes booking that intersect with moment `<DATE> <TIME>` without
+    Remove booking that intersect with moment `<DATE> <TIME>` without
     restrictions applied `/unbook` command, although still respecting
     user permissions.
     """
@@ -376,68 +424,117 @@ def process_cmd_unbook_force(message):
             booking_db.unbook(sender_id, time, force=True)
         booking_db.save_all_data(-1, data_file, whitelist_file,
                                  user_data_file)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /unbook_force')
-            raise
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing command')
+        raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
 
-@inline_handler(r'timetable:(\d+)')
-def process_button_timetable(sender_id, call):
+@bot.callback_query_handler(func=lambda call: call.data == 'timetable')
+def process_button_timetable(call):
+    """
+    Button `timetable`.
+
+    Display timetable for all timeline since current day.
+    """
     chat_id = call.message.chat.id
-    logger.info('Called button timetable from {}'.format(sender_id))
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    logger.info('Called button timetable from {}'.format(sender.user_id))
     exc = None
     timetable = None
     start_time = datetime.today()
     end_time = None
     try:
-        cmd_result_list = booking_db.get_timetable(sender_id, start_time,
-                                                   end_time)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing button timetable')
-            raise
+        cmd_result = booking_db.get_timetable(sender.user_id, start_time,
+                                              end_time)
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button timetable')
+        raise
     else:
-        timetable = format_timetable(cmd_result_list)
-    keyboard = get_cmd_keyboard(chat_id)
+        timetable = format_timetable(cmd_result)
+    keyboard = get_cmd_keyboard()
     bot.send_message(chat_id, get_error_message(exc, if_ok=timetable),
                      reply_markup=keyboard)
+    bot.answer_callback_query(call.id, text='')
 
 
-@inline_handler(r'timetable_today:(\d+)')
-def process_button_timetable_today(sender_id, call):
+@bot.callback_query_handler(func=lambda call: call.data == 'timetable_today')
+def process_button_timetable_today(call):
+    """
+    Button `timetable_today`.
+
+    Display timetable for current day.
+    """
     chat_id = call.message.chat.id
-    logger.info('Called button timetable_today from user {}'.format(sender_id))
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    logger.info('Called button timetable_today from user {}'.format(
+        sender.user_id))
     exc = None
     timetable = []
     start_time = datetime.today()
     end_time = start_time + timedelta(days=1)
     try:
-        cmd_result_list = booking_db.get_timetable(sender_id, start_time,
-                                                   end_time)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing button timetable_today')
-            raise
+        cmd_result = booking_db.get_timetable(sender.user_id, start_time,
+                                              end_time)
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button timetable_today')
+        raise
     else:
-        timetable = format_timetable(cmd_result_list)
-    keyboard = get_cmd_keyboard(chat_id)
+        timetable = format_timetable(cmd_result)
+    keyboard = get_cmd_keyboard()
     bot.send_message(chat_id, get_error_message(exc, if_ok=timetable),
                      reply_markup=keyboard)
+    bot.answer_callback_query(call.id, text='')
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'timetable_date')
+def process_button_timetable_date(call):
+    """
+    Button `timetable_date`.
+
+    Start inputting data to display timetable for given day.
+    """
+    chat_id = call.message.chat.id
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    logger.info('Called button timetable_date from user {}'.format(
+        sender.user_id))
+    exc = None
+    try:
+        sender.start_input_line('timetable_date')
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button timetable_date')
+        raise
+    bot.send_message(
+        chat_id, get_error_message(exc, if_ok=message_timetable_date_0),
+        reply_markup=get_calendar(sender.input_date_year,
+                                  sender.input_date_month))
+    bot.answer_callback_query(call.id, text='')
 
 
 @bot.message_handler(commands=['timetable'])
 def process_cmd_timetable(message):
     """
-    Command `/timetable`
+    Command `/timetable`.
+
     Syntax: `/timetable`
     Syntax: `/timetable TODAY`
     Syntax: `/timetable <DATE>`
-    Displays timetable for all timeline since current day (if no
+    Display timetable for all timeline since current day (if no
     parameters were given), for current day (if parameter was TODAY)
     or for `<DATE>` (if it was given).
     """
@@ -461,15 +558,14 @@ def process_cmd_timetable(message):
                     end_time = start_time + timedelta(days=1)
                 except ValueError:
                     raise BotBadDateFormat()
-        cmd_result_list = booking_db.get_timetable(sender_id, start_time,
-                                                   end_time)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /timetable')
-            raise
+        cmd_result = booking_db.get_timetable(sender_id, start_time, end_time)
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing command')
+        raise
     else:
-        timetable = format_timetable(cmd_result_list)
+        timetable = format_timetable(cmd_result)
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=timetable))
     booking_db.save_user_data(user_data_file)
@@ -478,9 +574,10 @@ def process_cmd_timetable(message):
 @bot.message_handler(commands=['savedata'])
 def process_cmd_save(message):
     """
-    Command `/savedata`
+    Command `/savedata`.
+
     Syntax: `/savedata`
-    Saves current booking data and white list to files.
+    Save current booking data and white list to files.
     This command is administrator-only.
     """
     sender_id = process_message_sender(message)
@@ -491,20 +588,21 @@ def process_cmd_save(message):
     try:
         booking_db.save_all_data(sender_id, data_file, whitelist_file,
                                  user_data_file)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /savedata')
-            raise
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing command')
+        raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
 
 @bot.message_handler(commands=['logmyinfo'])
 def process_cmd_logmyinfo(message):
     """
-    Command `/logmyinfo`
+    Command `/logmyinfo`.
+
     Syntax: `/logmyinfo`
-    Does nothing, just writes user ID and username to log.
+    Do nothing, just write user ID and username to log.
     """
     sender_id = process_message_sender(message)
     logger.info(
@@ -513,19 +611,26 @@ def process_cmd_logmyinfo(message):
     booking_db.save_user_data(user_data_file)
 
 
-@inline_handler(r'contactlist:(\d+)')
-def process_button_contactlist(sender_id, call):
+@bot.callback_query_handler(func=lambda call: call.data == 'contactlist')
+def process_button_contactlist(call):
+    """
+    Button `contactlist`.
+
+    Display contact list text message.
+    """
     chat_id = call.message.chat.id
-    keyboard = get_cmd_keyboard(chat_id)
+    keyboard = get_cmd_keyboard()
     bot.send_message(chat_id, message_contact_list, reply_markup=keyboard)
+    bot.answer_callback_query(call.id, text='')
 
 
 @bot.message_handler(commands=['contactlist'])
 def process_cmd_contactlist(message):
     """
-    Command `/contactlist`
+    Command `/contactlist`.
+
     Syntax: `/contactlist`
-    Displays contact list text message.
+    Display contact list text message.
     """
     bot.send_message(message.chat.id, message_contact_list)
 
@@ -533,12 +638,13 @@ def process_cmd_contactlist(message):
 @bot.message_handler(commands=['whitelist'])
 def process_cmd_whitelist(message):
     """
-    Command `/whitelist`
+    Command `/whitelist`.
+
     Syntax: `/whitelist`
     Syntax: `/whitelist ADD <USERNAME>`
     Syntax: `/whitelist REMOVE <USERNAME>`
-    Displays current whitelist (if no parameters were given) or
-    adds user `<USERNAME>` or removes him from whitelist.
+    Display current whitelist (if no parameters were given) or
+    adds user `<USERNAME>` or remove him from whitelist.
     This command is administrator-only.
     """
     sender_id = process_message_sender(message)
@@ -565,31 +671,136 @@ def process_cmd_whitelist(message):
         else:
             raise BotBadInput()
         booking_db.save_all_data(-1, data_file, whitelist_file, user_data_file)
-    except Exception as exception:
-        if not isinstance(exception, BotCommandException):
-            logger.error('Error ocurred when executing comand /timetable')
-            raise
+    except BotCommandException as exception:
         exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing command')
+        raise
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=msg_text))
 
 
-'''
-@bot.message_handler(content_types=['text'])
-def process_input(message):
-    log(message.text)
-    words = message.text.split()
-    log(str(words))
-    if len(words) != 2:
-        bot.send_message(message.chat.id, message_bad_input)
-    else:
-        name = words[0]
-        lang = words[1]
-        if result == None:
-            bot.send_message(message.chat.id, '!')
-        #else:
-            #bot.send_message(message.chat.id, message_output % result)
-'''
+@bot.callback_query_handler(func=lambda call: call.data == 'next_month')
+def process_button_next_month(call):
+    """
+    Button `next_month`.
+
+    Change to next month if calendar is shown.
+    """
+    chat_id = call.message.chat.id
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    if not sender.input_date:
+        return
+    logger.info('Called button next_month from user {}'.format(
+        sender.user_id))
+    exc = None
+    try:
+        sender.start_input_line('timetable_date')
+        sender.input_date_next_month()
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button next_month')
+        raise
+    bot.edit_message_text(
+        get_error_message(exc, if_ok=message_timetable_date_0),
+        call.from_user.id, call.message.message_id,
+        reply_markup=get_calendar(sender.input_date_year,
+                                  sender.input_date_month))
+    bot.answer_callback_query(call.id, text='')
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'previous_month')
+def process_button_previous_month(call):
+    """
+    Button `previous_month`.
+
+    Change to previous month if calendar is shown.
+    """
+    chat_id = call.message.chat.id
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    if not sender.input_date:
+        return
+    logger.info('Called button previous_month from user {}'.format(
+        sender.user_id))
+    exc = None
+    try:
+        sender.start_input_line('timetable_date')
+        sender.input_date_previous_month()
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button previous_month')
+        raise
+    bot.edit_message_text(
+        get_error_message(exc, if_ok=message_timetable_date_0),
+        call.from_user.id, call.message.message_id,
+        reply_markup=get_calendar(sender.input_date_year,
+                                  sender.input_date_month))
+    bot.answer_callback_query(call.id, text='')
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'ignore')
+def process_button_ignore(call):
+    """
+    Button `ignore`.
+
+    Ignore button input, only mark it as answered.
+    """
+    bot.answer_callback_query(call.id, text='')
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith('calendar_day:'))
+def process_button_calendar_day(call):
+    """
+    Button `calendar_day:<DAY>`.
+
+    Process calendar input of day `<DAY>`.
+    """
+    chat_id = call.message.chat.id
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    if not sender.input_date:
+        return
+
+    msg_text = None
+    exc = None
+    try:
+        regex_match = re.match(r'calendar_day:([0-9]+)', call.data)
+        if regex_match is None:
+            raise BotBadInput()
+        day = int(regex_match.group(1))
+
+        if sender.input_line_type != 'timetable_date':
+            raise BotBadInput()
+        sender.input_line_data.append(datetime(
+            sender.input_date_year, sender.input_date_month, day))
+
+        if sender.input_line_type == 'timetable_date':
+            start_time = sender.input_line_data[0]
+            end_time = start_time + timedelta(days=1)
+            cmd_result = booking_db.get_timetable(sender.user_id, start_time,
+                                                  end_time)
+            sender.start_input_line(None)
+            msg_text = format_timetable(cmd_result)
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button timetable_date')
+        raise
+    bot.send_message(
+        chat_id, get_error_message(exc, if_ok=msg_text),
+        reply_markup=get_cmd_keyboard())
+    bot.answer_callback_query(call.id, text='')
 
 
 if __name__ == '__main__':
