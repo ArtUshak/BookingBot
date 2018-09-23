@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Telegram bot for booking auditorium (see `README.md`)."""
 import calendar
-from datetime import datetime, timedelta
+import datetime
 import logging
 import re
 
@@ -21,7 +21,8 @@ from botsettings import (message_indev, message_operation_ok,
                          cmd_text_timetable_date,
                          cmd_text_timetable_book, cmd_text_timetable_unbook,
                          cmd_text_contactlist, cmd_text_help,
-                         message_timetable_date_0,
+                         message_timetable_date_0, message_book_0,
+                         message_book_1, message_book_2, message_book_3,
                          contactlist_file, help_file, data_file,
                          whitelist_file, adminlist_file, token_file,
                          proxy_file, user_data_file)
@@ -153,6 +154,7 @@ def format_timetable(timetable_data):
     different line, with data about start and end time and
     description.
     """
+    # TODO: probably split timetable messages using telebot.util.split_string()
     date_str = None
     result = message_timetable_header + '\n'
     for timetable_item in timetable_data:
@@ -220,9 +222,10 @@ def process_cmd_help(message):
     Syntax: `/start`
     Display help text message.
     """
-    chat_id = message.chat.id
+    process_message_sender(message)
+    booking_db.save_user_data(user_data_file)
     keyboard = get_cmd_keyboard()
-    bot.send_message(chat_id, message_help, reply_markup=keyboard)
+    bot.send_message(message.chat.id, message_help, reply_markup=keyboard)
 
 
 # Taken from https://github.com/unmonoqueteclea/calendar-telegram
@@ -308,13 +311,42 @@ def get_cmd_keyboard():
     return keyboard
 
 
+@bot.callback_query_handler(func=lambda call: call.data == 'book')
+def process_button_book(call):
+    """
+    Button `book`.
+
+    Start input to add new booking item.
+    """
+    chat_id = call.message.chat.id
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    logger.info('Called button book from user {}'.format(
+        sender.user_id))
+    exc = None
+    try:
+        sender.start_input_line('book')
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+    except Exception:
+        logger.error('Error ocurred when executing button book')
+        raise
+    bot.send_message(
+        chat_id, get_error_message(exc, if_ok=message_book_0),
+        reply_markup=get_calendar(sender.input_date_year,
+                                  sender.input_date_month))
+    bot.answer_callback_query(call.id, text='')
+
+
 @bot.message_handler(commands=['book'])
 def process_cmd_book(message):
     """
     Command `/book`.
 
     Syntax: `/book <DATE> <TIME> <DURATION> <DESCRIPTION>`
-    Adds new booking item starting from moment `<DATE> <TIME>` and
+    Add new booking item starting from moment `<DATE> <TIME>` and
     ending at moment `<DATE> <TIME> + <DURATION>` with description
     `<DESCRIPTION>`.
     """
@@ -338,7 +370,7 @@ def process_cmd_book(message):
                 date_str, time_str, duration_str, description))
         try:
             time = booking.process_date_time(date_str, time_str)
-            duration = booking.process_time(duration_str)
+            duration = booking.process_timedelta(duration_str)
         except ValueError:
             raise BotBadInput()
         else:
@@ -361,7 +393,7 @@ def process_cmd_unbook(message):
     Syntax: `/unbook <DATE> <TIME>`
     Remove booking that intersect with moment `<DATE> <TIME>`. Do not
     remove booking if it was not added by current user or if it has
-    passed.
+    already passed.
     """
     sender_id = process_message_sender(message)
     logger.info(
@@ -446,7 +478,7 @@ def process_button_timetable(call):
     logger.info('Called button timetable from {}'.format(sender.user_id))
     exc = None
     timetable = None
-    start_time = datetime.today()
+    start_time = datetime.datetime.today()
     end_time = None
     try:
         cmd_result = booking_db.get_timetable(sender.user_id, start_time,
@@ -479,8 +511,8 @@ def process_button_timetable_today(call):
         sender.user_id))
     exc = None
     timetable = []
-    start_time = datetime.today()
-    end_time = start_time + timedelta(days=1)
+    start_time = datetime.datetime.today()
+    end_time = start_time + datetime.timedelta(days=1)
     try:
         cmd_result = booking_db.get_timetable(sender.user_id, start_time,
                                               end_time)
@@ -543,7 +575,7 @@ def process_cmd_timetable(message):
         'Called /timetable from user {} ({})'.format(
             sender_id,
             message.from_user.username))
-    start_time = datetime.today()
+    start_time = datetime.datetime.today()
     end_time = None
     exc = None
     timetable = []
@@ -551,13 +583,16 @@ def process_cmd_timetable(message):
         if len(message.text.split()) >= 2:
             words = message.text.split(' ', 2)
             if words[1].lower() == 'today':
-                end_time = datetime.today() + timedelta(days=1)
+                end_time = (datetime.datetime.today()
+                            + datetime.timedelta(days=1))
             else:
                 try:
-                    start_time = booking.process_date(words[1])
-                    end_time = start_time + timedelta(days=1)
+                    start_date = booking.process_date(words[1])
                 except ValueError:
                     raise BotBadDateFormat()
+                start_time = datetime.datetime.combine(start_date,
+                                                       datetime.time.min)
+                end_time = start_time + datetime.timedelta(days=1)
         cmd_result = booking_db.get_timetable(sender_id, start_time, end_time)
     except BotCommandException as exception:
         exc = exception
@@ -644,7 +679,7 @@ def process_cmd_whitelist(message):
     Syntax: `/whitelist ADD <USERNAME>`
     Syntax: `/whitelist REMOVE <USERNAME>`
     Display current whitelist (if no parameters were given) or
-    adds user `<USERNAME>` or remove him from whitelist.
+    add user `<USERNAME>` or remove him from whitelist.
     This command is administrator-only.
     """
     sender_id = process_message_sender(message)
@@ -702,6 +737,7 @@ def process_button_next_month(call):
         booking_db.save_user_data(user_data_file)
     except BotCommandException as exception:
         exc = exception
+        sender.start_input_line(None)
     except Exception:
         logger.error('Error ocurred when executing button next_month')
         raise
@@ -735,6 +771,7 @@ def process_button_previous_month(call):
         booking_db.save_user_data(user_data_file)
     except BotCommandException as exception:
         exc = exception
+        sender.start_input_line(None)
     except Exception:
         logger.error('Error ocurred when executing button previous_month')
         raise
@@ -773,34 +810,98 @@ def process_button_calendar_day(call):
 
     msg_text = None
     exc = None
+    markup = get_cmd_keyboard()
     try:
         regex_match = re.match(r'calendar_day:([0-9]+)', call.data)
         if regex_match is None:
             raise BotBadInput()
         day = int(regex_match.group(1))
+        logger.info('Called button calendar_day:{} from user {}'.format(
+            day, sender.user_id))
 
-        if sender.input_line_type != 'timetable_date':
+        if ((sender.input_line_type != 'timetable_date')
+                and (sender.input_line_type != 'book')):
             raise BotBadInput()
-        sender.input_line_data.append(datetime(
-            sender.input_date_year, sender.input_date_month, day))
+        input_date = datetime.date(sender.input_date_year,
+                                   sender.input_date_month,
+                                   day)
+        sender.input_line_data.append(input_date.isoformat())
 
         if sender.input_line_type == 'timetable_date':
-            start_time = sender.input_line_data[0]
-            end_time = start_time + timedelta(days=1)
+            start_time = datetime.datetime.combine(input_date,
+                                                   datetime.time.min)
+            end_time = start_time + datetime.timedelta(days=1)
             cmd_result = booking_db.get_timetable(sender.user_id, start_time,
                                                   end_time)
             sender.start_input_line(None)
             msg_text = format_timetable(cmd_result)
+        elif sender.input_line_type == 'book':
+            msg_text = message_book_1
+            markup = None
         booking_db.save_user_data(user_data_file)
     except BotCommandException as exception:
         exc = exception
+        sender.start_input_line(None)
     except Exception:
         logger.error('Error ocurred when executing button timetable_date')
         raise
     bot.send_message(
         chat_id, get_error_message(exc, if_ok=msg_text),
-        reply_markup=get_cmd_keyboard())
+        reply_markup=markup)
     bot.answer_callback_query(call.id, text='')
+
+
+@bot.message_handler()
+def process_text(message):
+    """Process text input."""
+    sender_id = process_message_sender(message)
+    sender = booking_db.get_user(sender_id)
+    if sender is None:
+        return
+
+    msg_text = None
+    exc = None
+    markup = get_cmd_keyboard()
+    try:
+        if sender.input_line_type != 'book':
+            raise BotBadInput()
+        if sender.input_line_type == 'book':
+            data_num = len(sender.input_line_data)
+            if data_num == 1:
+                try:
+                    input_time = booking.process_time(message.text)
+                except ValueError:
+                    raise BotBadInput()
+                sender.input_line_data.append(input_time.isoformat())
+                msg_text = message_book_2
+                markup = None
+            elif data_num == 2:
+                try:
+                    input_timedelta = booking.process_timedelta(message.text)
+                except ValueError:
+                    raise BotBadInput()
+                sender.input_line_data.append(input_timedelta.total_seconds())
+                msg_text = message_book_3
+                markup = None
+            elif data_num == 3:
+                date = datetime.datetime.combine(
+                    datetime.date.fromisoformat(sender.input_line_data[0]),
+                    datetime.time.fromisoformat(sender.input_line_data[1]))
+                duration = datetime.timedelta(
+                    sender.input_line_data[2] // 86400,
+                    sender.input_line_data[2] % 86400)
+                booking_db.book(sender_id, date, duration, message.text)
+            else:
+                raise ValueError()
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+        sender.start_input_line(None)
+    except Exception:
+        logger.error('Error ocurred when prcoessing text message')
+        raise
+    bot.send_message(message.chat.id, get_error_message(exc, if_ok=msg_text),
+                     reply_markup=markup)
 
 
 if __name__ == '__main__':

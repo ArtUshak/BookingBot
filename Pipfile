@@ -5,12 +5,12 @@ name = "pypi"
 
 [packages]
 pytelegrambotapi = "*"
-pycodestyle = "*"
 pysocks = "*"
-pylint = "*"
-pydocstyle = "*"
 
 [dev-packages]
+pylint = "*"
+pycodestyle = "*"
+pydocstyle = "*"
 
 [requires]
 python_version = "3.7"

@@ -6,13 +6,19 @@
         {
             "label": "update",
             "type": "shell",
-            "command": "pipenv update",
+            "command": "pipenv update --dev",
             "problemMatcher": []
         },
         {
             "label": "run",
             "type": "shell",
             "command": "pipenv run python bot.py",
+            "problemMatcher": []
+        },
+        {
+            "label": "profile",
+            "type": "shell",
+            "command": "pipenv run python -m cProfile -o ../BookingBot-data/profile-data.bin ./bot.py && pipenv run python ./pstats_write.py",
             "problemMatcher": []
         }
     ]

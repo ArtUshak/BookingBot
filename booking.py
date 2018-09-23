@@ -2,7 +2,7 @@
 """Classes and functions to store bot data and manage it."""
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 import json
 import logging
 
@@ -24,12 +24,20 @@ class User(object):
     chat_id: int
     username: str
     input_line_type: str = None
+    # TODO: store input line data in datetime's, timedelta's and serialize it
     input_line_data: list = None
     input_date: bool = False
     input_date_year: int = None
     input_date_month: int = None
 
     def start_input_line(self, line_type):
+        """
+        Set input line type.
+
+        If `line_type` is not None, it will be set and input line data
+        will be initialized.
+        Otherwise input data will be cleared.
+        """
         if line_type is not None:
             self.input_line_type = line_type
             self.input_line_data = []
@@ -40,17 +48,20 @@ class User(object):
             self.input_date_clear()
 
     def input_date_init(self):
+        """Set input date to current date."""
         curr_date = datetime.today()
         self.input_date = True
         self.input_date_year = curr_date.year
         self.input_date_month = curr_date.month
 
     def input_date_clear(self):
+        """Clear input date."""
         self.input_date = False
         self.input_date_year = None
         self.input_date_month = None
 
     def input_date_next_month(self):
+        """Move input date to next month."""
         if not self.input_date:
             raise ValueError()
         self.input_date_month += 1
@@ -59,6 +70,7 @@ class User(object):
             self.input_date_month = 1
 
     def input_date_previous_month(self):
+        """Move input date to previous month."""
         if not self.input_date:
             raise ValueError()
         self.input_date_month -= 1
@@ -299,14 +311,22 @@ class BookingDB(object):
             self.user_data[user_id] = User(user_id, chat_id, username)
 
     def get_user(self, user_id):
-        """Return user object with ID `user_id`."""
-        return self.user_data[user_id]
+        """
+        Return user by ID.
+
+        Return user object with ID `user_id`, return None if such
+        user could not be found.
+        """
+        try:
+            return self.user_data[user_id]
+        except KeyError:
+            return None
 
     def get_user_by_chat_id(self, chat_id):
         """
         Return user by chat ID.
 
-        Return user object with chat ID `chat_id`, raise ValueError if such
+        Return user object with chat ID `chat_id`, return None if such
         user could not be found.
         """
         for user in self.user_data.values():
@@ -496,8 +516,8 @@ def process_date(date_str):
     """
     Parse date from string.
 
-    Parse date data from given date string `date_str` and return `datetime`
-    object.
+    Parse date data from given date string `date_str` and return
+    `datetime.date` object.
     `date_str` could be in formats `YYYY-MM-DD`, `DD.MM.YYYY`, `MM-DD`
     or `DD.MM`.
     """
@@ -516,7 +536,25 @@ def process_date(date_str):
     if result.year == 1900:
         result = datetime(
             datetime.today().year, result.month, result.day)
-    return result
+
+    return date(result.year, result.month, result.day)
+
+
+def process_time(time_str):
+    """
+    Parse time from string.
+
+    Parse time data from given date string `date_str` and return
+    `datetime.time` object.
+    `time_str` could be in formats `hh:mm` or `hh:mm:ss`.
+    """
+    global minute_treshold
+    try:
+        result = datetime.strptime(time_str, "%H:%M")
+    except ValueError:
+        result = datetime.strptime(time_str, "%H:%M:%S")
+
+    return time(result.hour, result.minute, result.second)
 
 
 def process_date_time(date_str, time_str):
@@ -557,7 +595,7 @@ def process_date_time(date_str, time_str):
     return result
 
 
-def process_time(time_str):
+def process_timedelta(time_str):
     """
     Parse time duration from string.
 
