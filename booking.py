@@ -488,7 +488,7 @@ class BookingDB(object):
         if not self.is_admin(user_id):
             raise BotNoAccess()
         for other_user_id in self.user_data:
-            if self.user_data[other_user_id]['username'] == target_username:
+            if self.user_data[other_user_id].username == target_username:
                 self.whitelist.append(user_id)
                 return
         raise BotUsernameNotFound()
@@ -506,7 +506,7 @@ class BookingDB(object):
         if not self.is_admin(user_id):
             raise BotNoAccess()
         for other_user_id in self.user_data:
-            if self.user_data[other_user_id]['username'] == target_username:
+            if self.user_data[other_user_id].username == target_username:
                 self.whitelist.remove(user_id)
                 return
         raise BotUsernameNotFound()

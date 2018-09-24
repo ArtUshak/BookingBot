@@ -173,6 +173,51 @@ def format_timetable(timetable_data):
     return result
 
 
+def bot_command_handler(name, param_num_min=-1, param_maxsplit=-1):
+    """
+    Create decorator for command hanling.
+
+    This decorator will wrap handler functions with code that can take
+    care of getting sender ID, sending error messages, etc.
+    """
+    def wrapper(func):
+        def wrapper_func(message):
+            sender_id = process_message_sender(message)
+            logger.info(
+                'Called {} from user {} ({})'.format(
+                    name, sender_id, message.from_user.username))
+            exc = None
+            result = None
+            try:
+                message_tokens = message.text.split(maxsplit=param_maxsplit)
+                if len(message_tokens) < param_num_min:
+                    raise BotBadInput()
+
+                result = func(message, sender_id, message_tokens)
+
+                booking_db.save_user_data(user_data_file)
+            except BotCommandException as exception:
+                exc = exception
+            except Exception:
+                logger.error('Error occurred when executing command {}'.format(
+                    name
+                ))
+                raise
+
+            result_message = None
+            result_markup = None
+            if result is not None:
+                result_message = result.get('message')
+                result_markup = result.get('markup')
+            bot.send_message(message.chat.id,
+                             get_error_message(exc, if_ok=result_message),
+                             reply_markup=result_markup)
+
+        return wrapper_func
+
+    return wrapper
+
+
 def format_whitelist(whitelist):
     """
     Return formatted whitelist `whitelist` as string.
@@ -215,7 +260,8 @@ def process_button_help(call):
 
 
 @bot.message_handler(commands=['start', 'help'])
-def process_cmd_help(message):
+@bot_command_handler('/help')
+def process_cmd_help(message, _sender_id, _params):
     """
     Command `/help`.
 
@@ -223,10 +269,10 @@ def process_cmd_help(message):
     Syntax: `/start`
     Display help text message.
     """
-    process_message_sender(message)
-    booking_db.save_user_data(user_data_file)
-    keyboard = get_cmd_keyboard()
-    bot.send_message(message.chat.id, message_help, reply_markup=keyboard)
+    return {
+        'message': message_help,
+        'markup': get_cmd_keyboard(),
+    }
 
 
 # Taken from https://github.com/unmonoqueteclea/calendar-telegram
@@ -342,7 +388,8 @@ def process_button_book(call):
 
 
 @bot.message_handler(commands=['book'])
-def process_cmd_book(message):
+@bot_command_handler('/book', param_num_min=5, param_maxsplit=4)
+def process_cmd_book(message, sender_id, params):
     """
     Command `/book`.
 
@@ -351,39 +398,23 @@ def process_cmd_book(message):
     ending at moment `<DATE> <TIME> + <DURATION>` with description
     `<DESCRIPTION>`.
     """
-    sender_id = process_message_sender(message)
+    date_str = params[1]
+    time_str = params[2]
+    duration_str = params[3]
+    description = params[4]
+    log_msg_format = ('Called /book for date {}, time {}, duration {}, '
+                      'description {}')
     logger.info(
-        'Called /book from user {} ({})'.format(sender_id,
-                                                message.from_user.username))
-    exc = None
+        log_msg_format.format(
+            date_str, time_str, duration_str, description))
     try:
-        if len(message.text.split()) < 5:
-            raise BotBadInput()
-        words = message.text.split(' ', 4)
-        date_str = words[1]
-        time_str = words[2]
-        duration_str = words[3]
-        description = words[4]
-        log_msg_format = ('Called /book for date {}, time {}, duration {}, '
-                          'description {}')
-        logger.info(
-            log_msg_format.format(
-                date_str, time_str, duration_str, description))
-        try:
-            time = booking.process_date_time(date_str, time_str)
-            duration = booking.process_timedelta(duration_str)
-        except ValueError:
-            raise BotBadInput()
-        else:
-            booking_db.book(sender_id, time, duration, description)
-        booking_db.save_all_data(-1, data_file, whitelist_file,
-                                 user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing command')
-        raise
-    bot.send_message(message.chat.id, get_error_message(exc))
+        time = booking.process_date_time(date_str, time_str)
+        duration = booking.process_timedelta(duration_str)
+    except ValueError:
+        raise BotBadInput()
+    else:
+        booking_db.book(sender_id, time, duration, description)
+    booking_db.save_data(data_file)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'unbook')
@@ -416,7 +447,8 @@ def process_button_unbook(call):
 
 
 @bot.message_handler(commands=['unbook'])
-def process_cmd_unbook(message):
+@bot_command_handler('/unbook', param_num_min=3, param_maxsplit=3)
+def process_cmd_unbook(message, sender_id, params):
     """
     Command `/unbook`.
 
@@ -425,73 +457,41 @@ def process_cmd_unbook(message):
     remove booking if it was not added by current user or if it has
     already passed.
     """
-    sender_id = process_message_sender(message)
+    date_str = params[1]
+    time_str = params[2]
     logger.info(
-        'Called /unbook from user {} ({})'.format(sender_id,
-                                                  message.from_user.username))
-    exc = None
+        'Called /unbook for date {}, time {}'.format(date_str, time_str))
     try:
-        if len(message.text.split()) < 3:
-            raise BotBadInput()
-        words = message.text.split(' ', 3)
-        date_str = words[1]
-        time_str = words[2]
-        logger.info(
-            'Called /unbook for date {}, time {}'.format(date_str, time_str))
-        try:
-            time = booking.process_date_time(date_str, time_str)
-        except ValueError:
-            raise BotBadInput()
-        else:
-            booking_db.unbook(sender_id, time)
-        booking_db.save_all_data(-1, data_file, whitelist_file,
-                                 user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing command')
-        raise
-    bot.send_message(message.chat.id, get_error_message(exc))
+        time = booking.process_date_time(date_str, time_str)
+    except ValueError:
+        raise BotBadInput()
+    else:
+        booking_db.unbook(sender_id, time)
+    booking_db.save_data(data_file)
 
 
 @bot.message_handler(commands=['unbook_force'])
-def process_cmd_unbook_force(message):
+@bot_command_handler('/unbook_force', param_num_min=3, param_maxsplit=3)
+def process_cmd_unbook_force(message, sender_id, params):
     """
     Command `/unbook_force`.
 
-    Syntax: `/unbook <DATE> <TIME>`
+    Syntax: `/unbook_force <DATE> <TIME>`
     Remove booking that intersect with moment `<DATE> <TIME>` without
     restrictions applied `/unbook` command, although still respecting
     user permissions.
     """
-    sender_id = process_message_sender(message)
+    date_str = params[1]
+    time_str = params[2]
     logger.info(
-        'Called /unbook_force from user {} ({})'.format(
-            sender_id, message.from_user.username))
-    exc = None
+        'Called /unbook for date {}, time {}'.format(date_str, time_str))
     try:
-        if len(message.text.split()) < 3:
-            raise BotBadInput()
-        words = message.text.split(' ', 3)
-        date_str = words[1]
-        time_str = words[2]
-        logger.info(
-            'Called /unbook_force for date {}, time {}'.format(
-                date_str, time_str))
-        try:
-            time = booking.process_date_time(date_str, time_str)
-        except ValueError:
-            raise BotBadInput()
-        else:
-            booking_db.unbook(sender_id, time, force=True)
-        booking_db.save_all_data(-1, data_file, whitelist_file,
-                                 user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing command')
-        raise
-    bot.send_message(message.chat.id, get_error_message(exc))
+        time = booking.process_date_time(date_str, time_str)
+    except ValueError:
+        raise BotBadInput()
+    else:
+        booking_db.unbook(sender_id, time, force=True)
+    booking_db.save_data(data_file)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable')
@@ -589,7 +589,8 @@ def process_button_timetable_date(call):
 
 
 @bot.message_handler(commands=['timetable'])
-def process_cmd_timetable(message):
+@bot_command_handler('/timetable', param_maxsplit=2)
+def process_cmd_timetable(message, sender_id, params):
     """
     Command `/timetable`.
 
@@ -600,44 +601,31 @@ def process_cmd_timetable(message):
     parameters were given), for current day (if parameter was TODAY)
     or for `<DATE>` (if it was given).
     """
-    sender_id = process_message_sender(message)
-    logger.info(
-        'Called /timetable from user {} ({})'.format(
-            sender_id,
-            message.from_user.username))
     start_time = datetime.datetime.today()
     end_time = None
-    exc = None
-    timetable = []
-    try:
-        if len(message.text.split()) >= 2:
-            words = message.text.split(' ', 2)
-            if words[1].lower() == 'today':
-                end_time = (datetime.datetime.today()
-                            + datetime.timedelta(days=1))
-            else:
-                try:
-                    start_date = booking.process_date(words[1])
-                except ValueError:
-                    raise BotBadDateFormat()
-                start_time = datetime.datetime.combine(start_date,
-                                                       datetime.time.min)
-                end_time = start_time + datetime.timedelta(days=1)
-        cmd_result = booking_db.get_timetable(sender_id, start_time, end_time)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing command')
-        raise
-    else:
-        timetable = format_timetable(cmd_result)
-    bot.send_message(message.chat.id, get_error_message(exc,
-                                                        if_ok=timetable))
-    booking_db.save_user_data(user_data_file)
+    if len(params) >= 2:
+        params = message.text.split(' ', 2)
+        if params[1].lower() == 'today':
+            end_time = (datetime.datetime.today()
+                        + datetime.timedelta(days=1))
+        else:
+            try:
+                start_date = booking.process_date(params[1])
+            except ValueError:
+                raise BotBadDateFormat()
+            start_time = datetime.datetime.combine(start_date,
+                                                   datetime.time.min)
+            end_time = start_time + datetime.timedelta(days=1)
+
+    result = booking_db.get_timetable(sender_id, start_time, end_time)
+    return {
+        'message': format_timetable(result),
+    }
 
 
 @bot.message_handler(commands=['savedata'])
-def process_cmd_save(message):
+@bot_command_handler('/savedata')
+def process_cmd_save(messagem, sender_id, _params):
     """
     Command `/savedata`.
 
@@ -645,35 +633,20 @@ def process_cmd_save(message):
     Save current booking data and white list to files.
     This command is administrator-only.
     """
-    sender_id = process_message_sender(message)
-    logger.info(
-        'Called /savedata from user {} ({})'.format(
-            sender_id, message.from_user.username))
-    exc = None
-    try:
-        booking_db.save_all_data(sender_id, data_file, whitelist_file,
-                                 user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing command')
-        raise
-    bot.send_message(message.chat.id, get_error_message(exc))
+    booking_db.save_all_data(sender_id, data_file, whitelist_file,
+                             user_data_file)
 
 
 @bot.message_handler(commands=['logmyinfo'])
-def process_cmd_logmyinfo(message):
+@bot_command_handler('/savedata')
+def process_cmd_logmyinfo(message, _sender_id, _params):
     """
     Command `/logmyinfo`.
 
     Syntax: `/logmyinfo`
-    Do nothing, just write user ID and username to log.
+    Do nothing, just write user ID and username to log and remember user data.
     """
-    sender_id = process_message_sender(message)
-    logger.info(
-        'Called /logmyinfo from user {} ({})'.format(
-            sender_id, message.from_user.username))
-    booking_db.save_user_data(user_data_file)
+    pass
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'contactlist')
@@ -690,18 +663,22 @@ def process_button_contactlist(call):
 
 
 @bot.message_handler(commands=['contactlist'])
-def process_cmd_contactlist(message):
+@bot_command_handler('/savedata')
+def process_cmd_contactlist(message, _sender_id, _params):
     """
     Command `/contactlist`.
 
     Syntax: `/contactlist`
     Display contact list text message.
     """
-    bot.send_message(message.chat.id, message_contact_list)
+    return {
+        'message': message_contact_list
+    }
 
 
 @bot.message_handler(commands=['whitelist'])
-def process_cmd_whitelist(message):
+@bot_command_handler('/savedata', param_maxsplit=3)
+def process_cmd_whitelist(message, sender_id, params):
     """
     Command `/whitelist`.
 
@@ -712,37 +689,25 @@ def process_cmd_whitelist(message):
     add user `<USERNAME>` or remove him from whitelist.
     This command is administrator-only.
     """
-    sender_id = process_message_sender(message)
-    logger.info(
-        'Called /whitelist from user {} ({})'.format(
-            sender_id,
-            message.from_user.username))
-    exc = None
     msg_text = None
-    try:
-        if len(message.text.split()) == 1:
-            whitelist = booking_db.get_whitelist(sender_id)
-            msg_text = format_whitelist(whitelist)
-        elif len(message.text.split()) == 3:
-            words = message.text.split(' ', 3)
-            action_str = words[1].lower()
-            username = words[2]
-            if action_str == 'add':
-                booking_db.add_user_to_whitelist(sender_id, username)
-            elif action_str == 'remove':
-                booking_db.remove_user_from_whitelist(sender_id, username)
-            else:
-                raise BotBadInput()
+    if len(params) == 1:
+        whitelist = booking_db.get_whitelist(sender_id)
+        msg_text = format_whitelist(whitelist)
+    elif len(params) == 3:
+        action_str = params[1].lower()
+        username = params[2]
+        if action_str == 'add':
+            booking_db.add_user_to_whitelist(sender_id, username)
+        elif action_str == 'remove':
+            booking_db.remove_user_from_whitelist(sender_id, username)
         else:
             raise BotBadInput()
-        booking_db.save_all_data(-1, data_file, whitelist_file, user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing command')
-        raise
-    bot.send_message(message.chat.id, get_error_message(exc,
-                                                        if_ok=msg_text))
+    else:
+        raise BotBadInput()
+    booking_db.save_whitelist(whitelist_file)
+    return {
+        'message': msg_text
+    }
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'next_month')
