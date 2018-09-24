@@ -16,13 +16,14 @@ from botsettings import (message_indev, message_operation_ok,
                          message_booking_not_found, message_username_not_found,
                          message_timetable_header, message_timetable_date_row,
                          message_timetable_row, message_whitelist_header,
-                         message_whitelist_row,
+                         message_whitelist_row, message_input_date,
                          cmd_text_timetable, cmd_text_timetable_today,
                          cmd_text_timetable_date,
                          cmd_text_timetable_book, cmd_text_timetable_unbook,
                          cmd_text_contactlist, cmd_text_help,
                          message_timetable_date_0, message_book_0,
                          message_book_1, message_book_2, message_book_3,
+                         message_unbook_0, message_unbook_1,
                          contactlist_file, help_file, data_file,
                          whitelist_file, adminlist_file, token_file,
                          proxy_file, user_data_file)
@@ -331,7 +332,7 @@ def process_button_book(call):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing button book')
+        logger.error('Error occurred when executing button book')
         raise
     bot.send_message(
         chat_id, get_error_message(exc, if_ok=message_book_0),
@@ -380,9 +381,38 @@ def process_cmd_book(message):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing command')
+        logger.error('Error occurred when executing command')
         raise
     bot.send_message(message.chat.id, get_error_message(exc))
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'unbook')
+def process_button_unbook(call):
+    """
+    Button `unbook`.
+
+    Start inputting data to remove booking.
+    """
+    chat_id = call.message.chat.id
+    sender = booking_db.get_user_by_chat_id(chat_id)
+    if sender is None:
+        return
+    logger.info('Called button unbook from user {}'.format(
+        sender.user_id))
+    exc = None
+    try:
+        sender.start_input_line('unbook')
+        booking_db.save_user_data(user_data_file)
+    except BotCommandException as exception:
+        exc = exception
+    except Exception:
+        logger.error('Error occurred when executing button unbook')
+        raise
+    bot.send_message(
+        chat_id, get_error_message(exc, if_ok=message_unbook_0),
+        reply_markup=get_calendar(sender.input_date_year,
+                                  sender.input_date_month))
+    bot.answer_callback_query(call.id, text='')
 
 
 @bot.message_handler(commands=['unbook'])
@@ -419,7 +449,7 @@ def process_cmd_unbook(message):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing command')
+        logger.error('Error occurred when executing command')
         raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
@@ -459,7 +489,7 @@ def process_cmd_unbook_force(message):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing command')
+        logger.error('Error occurred when executing command')
         raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
@@ -486,7 +516,7 @@ def process_button_timetable(call):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing button timetable')
+        logger.error('Error occurred when executing button timetable')
         raise
     else:
         timetable = format_timetable(cmd_result)
@@ -519,7 +549,7 @@ def process_button_timetable_today(call):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing button timetable_today')
+        logger.error('Error occurred when executing button timetable_today')
         raise
     else:
         timetable = format_timetable(cmd_result)
@@ -549,7 +579,7 @@ def process_button_timetable_date(call):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing button timetable_date')
+        logger.error('Error occurred when executing button timetable_date')
         raise
     bot.send_message(
         chat_id, get_error_message(exc, if_ok=message_timetable_date_0),
@@ -597,7 +627,7 @@ def process_cmd_timetable(message):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing command')
+        logger.error('Error occurred when executing command')
         raise
     else:
         timetable = format_timetable(cmd_result)
@@ -626,7 +656,7 @@ def process_cmd_save(message):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing command')
+        logger.error('Error occurred when executing command')
         raise
     bot.send_message(message.chat.id, get_error_message(exc))
 
@@ -709,7 +739,7 @@ def process_cmd_whitelist(message):
     except BotCommandException as exception:
         exc = exception
     except Exception:
-        logger.error('Error ocurred when executing command')
+        logger.error('Error occurred when executing command')
         raise
     bot.send_message(message.chat.id, get_error_message(exc,
                                                         if_ok=msg_text))
@@ -739,7 +769,7 @@ def process_button_next_month(call):
         exc = exception
         sender.start_input_line(None)
     except Exception:
-        logger.error('Error ocurred when executing button next_month')
+        logger.error('Error occurred when executing button next_month')
         raise
     bot.edit_message_text(
         get_error_message(exc, if_ok=message_timetable_date_0),
@@ -773,7 +803,7 @@ def process_button_previous_month(call):
         exc = exception
         sender.start_input_line(None)
     except Exception:
-        logger.error('Error ocurred when executing button previous_month')
+        logger.error('Error occurred when executing button previous_month')
         raise
     bot.edit_message_text(
         get_error_message(exc, if_ok=message_timetable_date_0),
@@ -820,11 +850,13 @@ def process_button_calendar_day(call):
             day, sender.user_id))
 
         if ((sender.input_line_type != 'timetable_date')
-                and (sender.input_line_type != 'book')):
+                and (sender.input_line_type != 'book')
+                and (sender.input_line_type != 'unbook')):
             raise BotBadInput()
         input_date = datetime.date(sender.input_date_year,
                                    sender.input_date_month,
                                    day)
+        bot.send_message(chat_id, message_input_date.format(input_date))
         sender.input_line_data.append(input_date.isoformat())
 
         if sender.input_line_type == 'timetable_date':
@@ -838,12 +870,15 @@ def process_button_calendar_day(call):
         elif sender.input_line_type == 'book':
             msg_text = message_book_1
             markup = None
+        elif sender.input_line_type == 'unbook':
+            msg_text = message_unbook_1
+            markup = None
         booking_db.save_user_data(user_data_file)
     except BotCommandException as exception:
         exc = exception
         sender.start_input_line(None)
     except Exception:
-        logger.error('Error ocurred when executing button timetable_date')
+        logger.error('Error occurred when executing button timetable_date')
         raise
     bot.send_message(
         chat_id, get_error_message(exc, if_ok=msg_text),
@@ -863,7 +898,8 @@ def process_text(message):
     exc = None
     markup = get_cmd_keyboard()
     try:
-        if sender.input_line_type != 'book':
+        if ((sender.input_line_type != 'book')
+                and (sender.input_line_type != 'unbook')):
             raise BotBadInput()
         if sender.input_line_type == 'book':
             data_num = len(sender.input_line_data)
@@ -891,14 +927,26 @@ def process_text(message):
                     sender.input_line_data[2] // 86400,
                     sender.input_line_data[2] % 86400)
                 booking_db.book(sender_id, date, duration, message.text)
+                sender.start_input_line(None)
             else:
                 raise ValueError()
+        elif sender.input_line_type == 'unbook':
+            try:
+                input_time = booking.process_time(message.text)
+            except ValueError:
+                raise BotBadInput()
+            date = datetime.datetime.combine(
+                datetime.date.fromisoformat(sender.input_line_data[0]),
+                input_time)
+            booking_db.unbook(sender_id, date)
+            sender.start_input_line(None)
+
         booking_db.save_user_data(user_data_file)
     except BotCommandException as exception:
         exc = exception
         sender.start_input_line(None)
     except Exception:
-        logger.error('Error ocurred when prcoessing text message')
+        logger.error('Error occurred when prcoessing text message')
         raise
     bot.send_message(message.chat.id, get_error_message(exc, if_ok=msg_text),
                      reply_markup=markup)

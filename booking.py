@@ -569,21 +569,21 @@ def process_date_time(date_str, time_str):
     """
     global minute_treshold
     try:
-        data_date = datetime.strptime(date_str, "%Y-%m-%d")
+        result_date = datetime.strptime(date_str, "%Y-%m-%d")
     except ValueError:
         try:
-            data_date = datetime.strptime(date_str, "%d.%m.%Y")
+            result_date = datetime.strptime(date_str, "%d.%m.%Y")
         except ValueError:
             try:
-                data_date = datetime.strptime(date_str, "%m-%d")
+                result_date = datetime.strptime(date_str, "%m-%d")
             except ValueError:
-                data_date = datetime.strptime(date_str, "%d.%m")
+                result_date = datetime.strptime(date_str, "%d.%m")
     try:
-        data_time = datetime.strptime(time_str, "%H:%M")
+        result_time = datetime.strptime(time_str, "%H:%M")
     except ValueError:
-        data_time = datetime.strptime(time_str, "%H:%M:%S")
+        result_time = datetime.strptime(time_str, "%H:%M:%S")
 
-    result = datetime.combine(data_date.date(), data_time.time())
+    result = datetime.combine(result_date.date(), result_time.time())
     if result.year == 1900:
         result = datetime(
             datetime.today().year, result.month, result.day, result.hour,
@@ -605,17 +605,20 @@ def process_timedelta(time_str):
     `seconds`.
     """
     if len(time_str.split(":")) == 1:
-        data_timedelta = timedelta(
+        result_timedelta = timedelta(
             minutes=((int(time_str) // minute_treshold) * minute_treshold))
     else:
         time_str_tokens = time_str.split(":")
-        data_timedelta = timedelta(
+        result_timedelta = timedelta(
             hours=((int(time_str_tokens[0]) // minute_treshold)
                    * minute_treshold),
             minutes=((int(time_str_tokens[1]) // minute_treshold)
                      * minute_treshold))
 
-    return data_timedelta
+    if result_timedelta.total_seconds() < 0:
+        raise ValueError()
+
+    return result_timedelta
 
 
 def serialize_booking_item(data):

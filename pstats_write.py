@@ -11,7 +11,7 @@ def main():
     """Execute script."""
     with open(OUTPUT_FILE, 'w') as stream:
         p = pstats.Stats(INPUT_FILE, stream=stream)
-        p.sort_stats('tottime')
+        p.sort_stats('cumtime')
         p.print_stats()
 
 
