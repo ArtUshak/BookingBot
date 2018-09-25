@@ -70,19 +70,19 @@ Or, if no proxy should be used:
 none
 ```
 
-## Data file
+### Data file
 
 File name should be set in variable `data_file`.
 
 This is JSON file with booking data. It is saved and loaded by bot. If this file do not exist, it will be generated.
 
-## User data file
+### User data file
 
 File name should be set in variable `user_data_file`.
 
 This is JSON file with user data (user IDs, usernames, etc). It is saved and loaded by bot. If this file do not exist, it will be generated.
 
-## Log file
+### Log file
 
 File name should be set in variable `log_file`.
 
