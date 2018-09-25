@@ -48,13 +48,11 @@ cmd_text_timetable_unbook = 'Отменить бронирование'
 cmd_text_contactlist = 'Контакты'
 cmd_text_help = 'Справка'
 
-message_timetable_date_0 = 'Введите дату через календарь'
-message_book_0 = 'Введите дату начала события через календарь'
+message_prompt_date = 'Введите дату через календарь'
 message_book_1 = 'Введите время начала события в формате часы:минуты'
 message_book_2 = ('Введите длительность события в формате часы:минуты или'
                   ' минуты')
 message_book_3 = 'Введите описание события'
-message_unbook_0 = 'Введите дату через календарь'
 message_unbook_1 = 'Введите время события в формате часы:минуты'
 
 contactlist_file = '../BookingBot-data/contacts.txt'

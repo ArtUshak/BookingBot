@@ -21,9 +21,9 @@ from botsettings import (message_indev, message_operation_ok,
                          cmd_text_timetable_date,
                          cmd_text_timetable_book, cmd_text_timetable_unbook,
                          cmd_text_contactlist, cmd_text_help,
-                         message_timetable_date_0, message_book_0,
+                         message_prompt_date,
                          message_book_1, message_book_2, message_book_3,
-                         message_unbook_0, message_unbook_1,
+                         message_unbook_1,
                          contactlist_file, help_file, data_file,
                          whitelist_file, adminlist_file, token_file,
                          proxy_file, user_data_file)
@@ -184,7 +184,7 @@ def bot_command_handler(name, param_num_min=-1, param_maxsplit=-1):
         def wrapper_func(message):
             sender_id = process_message_sender(message)
             logger.info(
-                'Called {} from user {} ({})'.format(
+                'Called command {} from user {} ({})'.format(
                     name, sender_id, message.from_user.username))
             exc = None
             result = None
@@ -212,6 +212,60 @@ def bot_command_handler(name, param_num_min=-1, param_maxsplit=-1):
             bot.send_message(message.chat.id,
                              get_error_message(exc, if_ok=result_message),
                              reply_markup=result_markup)
+
+        return wrapper_func
+
+    return wrapper
+
+
+def bot_button_handler(name):
+    """
+    Create decorator for button hanling.
+
+    This decorator will wrap handler functions with code that can take
+    care of getting sender ID, sending error messages, etc.
+    """
+    def wrapper(func):
+        def wrapper_func(call):
+            chat_id = call.message.chat.id
+            sender = booking_db.get_user_by_chat_id(chat_id)
+            if sender is None:
+                return
+            logger.info('Called button {} from user {}'.format(
+                name, sender.user_id))
+            exc = None
+            result_message = None
+            result_markup = None
+            result_edit_markup = None
+            try:
+                result = func(call, sender)
+            except BotCommandException as exception:
+                exc = exception
+                result_markup = get_cmd_keyboard()
+                sender.start_input_line(None)
+                booking_db.save_user_data(user_data_file)
+            except Exception:
+                logger.error('Error occurred when executing button {}').format(
+                    name
+                )
+                raise
+
+            if result is not None:
+                result_message = result.get('message')
+                result_markup = result.get('markup')
+                result_edit_markup = result.get('edit_markup')
+                result_edit_message = result.get('edit_message')
+            if ((result_edit_markup is not None)
+                    or (result_edit_message is not None)):
+                bot.edit_message_text(
+                    get_error_message(exc, if_ok=result_edit_message),
+                    call.from_user.id, call.message.message_id,
+                    reply_markup=result_edit_markup)
+            else:
+                bot.send_message(
+                    chat_id, get_error_message(exc, if_ok=result_message),
+                    reply_markup=result_markup)
+            bot.answer_callback_query(call.id, text='')
 
         return wrapper_func
 
@@ -247,16 +301,17 @@ def process_message_sender(message):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
-def process_button_help(call):
+@bot_button_handler('help')
+def process_button_help(_call, _sender):
     """
     Button `help`.
 
     Display help text message.
     """
-    chat_id = call.message.chat.id
-    keyboard = get_cmd_keyboard()
-    bot.send_message(chat_id, message_help, reply_markup=keyboard)
-    bot.answer_callback_query(call.id, text='')
+    return {
+        'message': message_help,
+        'markup': get_cmd_keyboard(),
+    }
 
 
 @bot.message_handler(commands=['start', 'help'])
@@ -359,32 +414,20 @@ def get_cmd_keyboard():
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'book')
-def process_button_book(call):
+@bot_button_handler('book')
+def process_button_book(_call, sender):
     """
     Button `book`.
 
     Start input to add new booking item.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
-    logger.info('Called button book from user {}'.format(
-        sender.user_id))
-    exc = None
-    try:
-        sender.start_input_line('book')
-        booking_db.save_user_data(user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing button book')
-        raise
-    bot.send_message(
-        chat_id, get_error_message(exc, if_ok=message_book_0),
-        reply_markup=get_calendar(sender.input_date_year,
-                                  sender.input_date_month))
-    bot.answer_callback_query(call.id, text='')
+    sender.start_input_line('book')
+    booking_db.save_user_data(user_data_file)
+    return {
+        'message': message_prompt_date,
+        'markup': get_calendar(sender.input_date_year,
+                               sender.input_date_month),
+    }
 
 
 @bot.message_handler(commands=['book'])
@@ -418,32 +461,20 @@ def process_cmd_book(message, sender_id, params):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'unbook')
-def process_button_unbook(call):
+@bot_button_handler('unbook')
+def process_button_unbook(_call, sender):
     """
     Button `unbook`.
 
     Start inputting data to remove booking.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
-    logger.info('Called button unbook from user {}'.format(
-        sender.user_id))
-    exc = None
-    try:
-        sender.start_input_line('unbook')
-        booking_db.save_user_data(user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing button unbook')
-        raise
-    bot.send_message(
-        chat_id, get_error_message(exc, if_ok=message_unbook_0),
-        reply_markup=get_calendar(sender.input_date_year,
-                                  sender.input_date_month))
-    bot.answer_callback_query(call.id, text='')
+    sender.start_input_line('unbook')
+    booking_db.save_user_data(user_data_file)
+    return {
+        'message': message_prompt_date,
+        'markup': get_calendar(sender.input_date_year,
+                               sender.input_date_month),
+    }
 
 
 @bot.message_handler(commands=['unbook'])
@@ -495,97 +526,58 @@ def process_cmd_unbook_force(message, sender_id, params):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable')
-def process_button_timetable(call):
+@bot_button_handler('timetable')
+def process_button_timetable(_call, sender):
     """
     Button `timetable`.
 
     Display timetable for all timeline since current day.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
-    logger.info('Called button timetable from {}'.format(sender.user_id))
-    exc = None
     timetable = None
     start_time = datetime.datetime.today()
     end_time = None
-    try:
-        cmd_result = booking_db.get_timetable(sender.user_id, start_time,
-                                              end_time)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing button timetable')
-        raise
-    else:
-        timetable = format_timetable(cmd_result)
-    keyboard = get_cmd_keyboard()
-    bot.send_message(chat_id, get_error_message(exc, if_ok=timetable),
-                     reply_markup=keyboard)
-    bot.answer_callback_query(call.id, text='')
+    timetable = booking_db.get_timetable(sender.user_id, start_time,
+                                         end_time)
+    return {
+        'message': format_timetable(timetable),
+        'markup': get_cmd_keyboard(),
+    }
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable_today')
-def process_button_timetable_today(call):
+@bot_button_handler('timetable_today')
+def process_button_timetable_today(_call, sender):
     """
     Button `timetable_today`.
 
     Display timetable for current day.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
-    logger.info('Called button timetable_today from user {}'.format(
-        sender.user_id))
-    exc = None
     timetable = []
     start_time = datetime.datetime.today()
     end_time = start_time + datetime.timedelta(days=1)
-    try:
-        cmd_result = booking_db.get_timetable(sender.user_id, start_time,
-                                              end_time)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing button timetable_today')
-        raise
-    else:
-        timetable = format_timetable(cmd_result)
-    keyboard = get_cmd_keyboard()
-    bot.send_message(chat_id, get_error_message(exc, if_ok=timetable),
-                     reply_markup=keyboard)
-    bot.answer_callback_query(call.id, text='')
+    timetable = booking_db.get_timetable(sender.user_id, start_time,
+                                         end_time)
+    return {
+        'message': format_timetable(timetable),
+        'markup': get_cmd_keyboard(),
+    }
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable_date')
-def process_button_timetable_date(call):
+@bot_button_handler('timetable_date')
+def process_button_timetable_date(_call, sender):
     """
     Button `timetable_date`.
 
     Start inputting data to display timetable for given day.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
-    logger.info('Called button timetable_date from user {}'.format(
-        sender.user_id))
-    exc = None
-    try:
-        sender.start_input_line('timetable_date')
-        booking_db.save_user_data(user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-    except Exception:
-        logger.error('Error occurred when executing button timetable_date')
-        raise
-    bot.send_message(
-        chat_id, get_error_message(exc, if_ok=message_timetable_date_0),
-        reply_markup=get_calendar(sender.input_date_year,
-                                  sender.input_date_month))
-    bot.answer_callback_query(call.id, text='')
+    sender.start_input_line('timetable_date')
+    booking_db.save_user_data(user_data_file)
+    return {
+        'message': message_prompt_date,
+        'markup': get_calendar(sender.input_date_year,
+                               sender.input_date_month),
+    }
 
 
 @bot.message_handler(commands=['timetable'])
@@ -617,9 +609,9 @@ def process_cmd_timetable(message, sender_id, params):
                                                    datetime.time.min)
             end_time = start_time + datetime.timedelta(days=1)
 
-    result = booking_db.get_timetable(sender_id, start_time, end_time)
+    timetable = booking_db.get_timetable(sender_id, start_time, end_time)
     return {
-        'message': format_timetable(result),
+        'message': format_timetable(timetable),
     }
 
 
@@ -650,16 +642,17 @@ def process_cmd_logmyinfo(message, _sender_id, _params):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'contactlist')
-def process_button_contactlist(call):
+@bot_button_handler('contactlist')
+def process_button_contactlist(_call, _sender):
     """
     Button `contactlist`.
 
     Display contact list text message.
     """
-    chat_id = call.message.chat.id
-    keyboard = get_cmd_keyboard()
-    bot.send_message(chat_id, message_contact_list, reply_markup=keyboard)
-    bot.answer_callback_query(call.id, text='')
+    return {
+        'message': message_contact_list,
+        'markup': get_cmd_keyboard(),
+    }
 
 
 @bot.message_handler(commands=['contactlist'])
@@ -711,71 +704,45 @@ def process_cmd_whitelist(message, sender_id, params):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'next_month')
-def process_button_next_month(call):
+@bot_button_handler('next_month')
+def process_button_next_month(_call, sender):
     """
     Button `next_month`.
 
     Change to next month if calendar is shown.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
     if not sender.input_date:
         return
-    logger.info('Called button next_month from user {}'.format(
-        sender.user_id))
-    exc = None
-    try:
-        sender.start_input_line('timetable_date')
-        sender.input_date_next_month()
-        booking_db.save_user_data(user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-        sender.start_input_line(None)
-    except Exception:
-        logger.error('Error occurred when executing button next_month')
-        raise
-    bot.edit_message_text(
-        get_error_message(exc, if_ok=message_timetable_date_0),
-        call.from_user.id, call.message.message_id,
-        reply_markup=get_calendar(sender.input_date_year,
-                                  sender.input_date_month))
-    bot.answer_callback_query(call.id, text='')
+
+    sender.input_date_next_month()
+    booking_db.save_user_data(user_data_file)
+
+    return {
+        'edit_message': message_prompt_date,
+        'edit_markup': get_calendar(sender.input_date_year,
+                                    sender.input_date_month),
+    }
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'previous_month')
-def process_button_previous_month(call):
+@bot_button_handler('previous_month')
+def process_button_previous_month(_call, sender):
     """
     Button `previous_month`.
 
     Change to previous month if calendar is shown.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
     if not sender.input_date:
         return
-    logger.info('Called button previous_month from user {}'.format(
-        sender.user_id))
-    exc = None
-    try:
-        sender.start_input_line('timetable_date')
-        sender.input_date_previous_month()
-        booking_db.save_user_data(user_data_file)
-    except BotCommandException as exception:
-        exc = exception
-        sender.start_input_line(None)
-    except Exception:
-        logger.error('Error occurred when executing button previous_month')
-        raise
-    bot.edit_message_text(
-        get_error_message(exc, if_ok=message_timetable_date_0),
-        call.from_user.id, call.message.message_id,
-        reply_markup=get_calendar(sender.input_date_year,
-                                  sender.input_date_month))
-    bot.answer_callback_query(call.id, text='')
+
+    sender.input_date_previous_month()
+    booking_db.save_user_data(user_data_file)
+
+    return {
+        'edit_message': message_prompt_date,
+        'edit_markup': get_calendar(sender.input_date_year,
+                                    sender.input_date_month),
+    }
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'ignore')
@@ -790,65 +757,54 @@ def process_button_ignore(call):
 
 @bot.callback_query_handler(
     func=lambda call: call.data.startswith('calendar_day:'))
-def process_button_calendar_day(call):
+@bot_button_handler('calendar_day')
+def process_button_calendar_day(call, sender):
     """
     Button `calendar_day:<DAY>`.
 
     Process calendar input of day `<DAY>`.
     """
-    chat_id = call.message.chat.id
-    sender = booking_db.get_user_by_chat_id(chat_id)
-    if sender is None:
-        return
     if not sender.input_date:
         return
 
-    msg_text = None
-    exc = None
-    markup = get_cmd_keyboard()
-    try:
-        regex_match = re.match(r'calendar_day:([0-9]+)', call.data)
-        if regex_match is None:
-            raise BotBadInput()
-        day = int(regex_match.group(1))
-        logger.info('Called button calendar_day:{} from user {}'.format(
-            day, sender.user_id))
+    regex_match = re.match(r'calendar_day:([0-9]+)', call.data)
+    if regex_match is None:
+        raise BotBadInput()
+    day = int(regex_match.group(1))
 
-        if ((sender.input_line_type != 'timetable_date')
-                and (sender.input_line_type != 'book')
-                and (sender.input_line_type != 'unbook')):
-            raise BotBadInput()
-        input_date = datetime.date(sender.input_date_year,
-                                   sender.input_date_month,
-                                   day)
-        bot.send_message(chat_id, message_input_date.format(input_date))
-        sender.input_line_data.append(input_date.isoformat())
+    if ((sender.input_line_type != 'timetable_date')
+            and (sender.input_line_type != 'book')
+            and (sender.input_line_type != 'unbook')):
+        raise BotBadInput()
 
-        if sender.input_line_type == 'timetable_date':
-            start_time = datetime.datetime.combine(input_date,
-                                                   datetime.time.min)
-            end_time = start_time + datetime.timedelta(days=1)
-            cmd_result = booking_db.get_timetable(sender.user_id, start_time,
-                                                  end_time)
-            sender.start_input_line(None)
-            msg_text = format_timetable(cmd_result)
-        elif sender.input_line_type == 'book':
-            msg_text = message_book_1
-            markup = None
-        elif sender.input_line_type == 'unbook':
-            msg_text = message_unbook_1
-            markup = None
-        booking_db.save_user_data(user_data_file)
-    except BotCommandException as exception:
-        exc = exception
+    input_date = datetime.date(sender.input_date_year,
+                               sender.input_date_month,
+                               day)
+    bot.send_message(call.message.chat.id,
+                     message_input_date.format(input_date))
+    sender.input_line_data.append(input_date.isoformat())
+
+    if sender.input_line_type == 'timetable_date':
+        start_time = datetime.datetime.combine(input_date,
+                                               datetime.time.min)
+        end_time = start_time + datetime.timedelta(days=1)
+        timetable = booking_db.get_timetable(sender.user_id, start_time,
+                                             end_time)
         sender.start_input_line(None)
-    except Exception:
-        logger.error('Error occurred when executing button timetable_date')
-        raise
-    bot.send_message(
-        chat_id, get_error_message(exc, if_ok=msg_text),
-        reply_markup=markup)
-    bot.answer_callback_query(call.id, text='')
+        return {
+            'message': format_timetable(timetable),
+            'markup': get_cmd_keyboard(),
+        }
+    elif sender.input_line_type == 'book':
+        return {
+            'message': message_book_1,
+            'markup': None,
+        }
+    elif sender.input_line_type == 'unbook':
+        return {
+            'message': message_unbook_1,
+            'markup': None,
+        }
 
 
 @bot.message_handler()
