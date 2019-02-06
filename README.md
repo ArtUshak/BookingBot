@@ -10,28 +10,6 @@ You can also see documentation in python code.
 
 Bot settings (including paths of data files) should be set in `botsettings.py` as variables.
 
-### Contact list file
-
-File name should be set in variable `contactlist_file`.
-
-This is text file, its content will be displayed to users who type `/contactlist` command.
-
-### Administrator list file
-
-File name should be set in variable `adminlist_file`.
-
-This is text file with list of administrator user IDs.
-
-Each line should contain either user ID of amdministrator, or comment, beggining with the # character.
-
-Example:
-
-```text
-#This is admin list
-252070907
-#124889533
-```
-
 ### Token file
 
 File name should be set in variable `token_file`.
@@ -40,15 +18,11 @@ This is text file with token for Telegram API on first line (leading and traling
 
 *Important notice*: this data should be kept private for security reasons.
 
-### Whitelist file
+### Contact list file
 
-File name should be set in variable `whitelist_file`.
+File name should be set in variable `contactlist_file`.
 
-This is text file with list of administrator user IDs.
-
-Each line should contain either user ID of amdministrator, or comment, beggining with the # character.
-
-*Important notice*: this file will be overwritten when saving all data, and comments will not be kept.
+This is text file, its content will be displayed to users who type `/contactlist` command.
 
 ### Proxy file
 
@@ -70,20 +44,68 @@ Or, if no proxy should be used:
 none
 ```
 
-### Data file
+### Database
 
-File name should be set in variable `data_file`.
-
-This is JSON file with booking data. It is saved and loaded by bot. If this file do not exist, it will be generated.
-
-### User data file
-
-File name should be set in variable `user_data_file`.
-
-This is JSON file with user data (user IDs, usernames, etc). It is saved and loaded by bot. If this file do not exist, it will be generated.
+Database filename should be set in variable `database_file` (SQLite database are only supported yet).
 
 ### Log file
 
 File name should be set in variable `log_file`.
 
 Log will be appended to this file.
+
+## Management
+
+Management script is named `manage.py`.
+
+### Loading whitelist file
+
+Whitelist can be added to database from file using following command:
+
+```sh
+python ./manage.py load-whitelist FILENAME
+```
+
+Each line of file should contain either user ID of user, or comment, beggining with the # character.
+
+Example:
+
+```text
+#This is whitelist
+252070907
+#124889533
+```
+
+### Loading administrator list file
+
+Administrators can be added from file using following command:
+
+```sh
+python ./manage.py load-admins FILENAME
+```
+
+Each line of file should contain either user ID of amdministrator, or comment, beggining with the # character.
+
+Example:
+
+```text
+#This is admin list
+252070907
+#124889533
+```
+
+### Adding administrator
+
+User can be made administator using following command:
+
+```sh
+python ./manage.py op-username USERNAME
+```
+
+### Removing administrator
+
+User can be made not administator using following command:
+
+```sh
+python ./manage.py deop-username USERNAME
+```

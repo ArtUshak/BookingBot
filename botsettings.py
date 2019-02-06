@@ -15,6 +15,8 @@ logging.basicConfig(level=logging.INFO,
 
 locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF8',))
 
+min_year = 1970
+
 message_bad_cmd = ('Команда не найдена. Для получения списка команд введите '
                    '/help.')
 message_indev = 'Данная функция находится в разработке.'
@@ -57,9 +59,7 @@ message_unbook_1 = 'Введите время события в формате �
 
 contactlist_file = '../BookingBot-data/contacts.txt'
 help_file = 'help.txt'
-data_file = '../BookingBot-data/booking.json'
-whitelist_file = '../BookingBot-data/whitelist.txt'
-adminlist_file = '../BookingBot-data/admins.txt'
 token_file = '../BookingBot-data/b1540-n38-token.txt'
 proxy_file = '../BookingBot-data/proxy.txt'
-user_data_file = '../BookingBot-data/users.json'
+
+database_file = '../BookingBot-data/data.db'

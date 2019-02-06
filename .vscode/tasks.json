@@ -20,6 +20,18 @@
             "type": "shell",
             "command": "pipenv run python -m cProfile -o ../BookingBot-data/profile-data.bin ./bot.py && pipenv run python ./pstats_write.py",
             "problemMatcher": []
+        },
+        {
+            "label": "load-admins",
+            "type": "shell",
+            "command": "pipenv run python ./manage.py load-admins ../BookingBot-data/admins.txt",
+            "problemMatcher": []
+        },
+        {
+            "label": "load-whitelist",
+            "type": "shell",
+            "command": "pipenv run python ./manage.py load-whitelist ../BookingBot-data/whitelist.txt",
+            "problemMatcher": []
         }
     ]
 }

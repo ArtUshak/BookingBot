@@ -4,4 +4,5 @@
     "python.linting.pep8Enabled": true,
     "python.linting.pydocstyleEnabled": true,
     "python.linting.pylintCategorySeverity.convention": "Warning",
+    "python.linting.pylintCategorySeverity.refactor": "Information",
 }
