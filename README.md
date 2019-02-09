@@ -8,13 +8,11 @@ You can also see documentation in python code.
 
 ## Configuration
 
-Bot settings (including paths of data files) should be set in `botsettings.py` as variables.
+Bot settings should be set as environment variables.
 
-### Token file
+### Token
 
-File name should be set in variable `token_file`.
-
-This is text file with token for Telegram API on first line (leading and traling spaces are ignored).
+Environment variable `TOKEN` should be set to token for Telegram API.
 
 *Important notice*: this data should be kept private for security reasons.
 
@@ -26,31 +24,41 @@ This is text file, its content will be displayed to users who type `/contactlist
 
 ### Proxy file
 
-File name should be set in variable `proxy_file`.
-
-This is text file with proxy server data.
+Environment variable `TELEGRAM_PROXY` should be set to proxy configuration.
 
 It should contain proxy type, space character and proxy URL.
 
 Example:
 
-```text
-https https://192.168.0.228:8080
+```sh
+export TELEGRAM_PROXY="https https://192.168.0.228:8080"
 ```
 
 Or, if no proxy should be used:
 
-```text
-none
+```sh
+export TELEGRAM_PROXY=none
 ```
 
 ### Database
 
-Database filename should be set in variable `database_file` (SQLite database are only supported yet).
+Environment variable `DATABASE_URL` should be set to database URL (see [playhouse.db_url.connect documentation](http://docs.peewee-orm.com/en/latest/peewee/playhouse.html#connect)), default value is `sqlite:/../BookingBot-data/data.db`.
+
+Example:
+
+```sh
+export DATABASE_URL="postgresql://bookingbot:password@localhost:5432/bookingbot"
+```
+
+Or:
+
+```sh
+export DATABASE_URL="sqlite:/../BookingBot-data/data.db"
+```
 
 ### Log file
 
-File name should be set in variable `log_file`.
+Environment variable `BOT_LOG` should be set to log file name, default value is `../BookingBot-data/log.log`.
 
 Log will be appended to this file.
 

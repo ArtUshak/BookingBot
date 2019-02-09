@@ -6,31 +6,31 @@
         {
             "label": "update",
             "type": "shell",
-            "command": "pipenv update --dev",
-            "problemMatcher": []
+            "command": "source ./.env && pipenv update --dev",
+            "problemMatcher": [],
         },
         {
             "label": "run",
             "type": "shell",
-            "command": "pipenv run python bot.py",
+            "command": "source ./.env && pipenv run python ./bot.py",
             "problemMatcher": []
         },
         {
             "label": "profile",
             "type": "shell",
-            "command": "pipenv run python -m cProfile -o ../BookingBot-data/profile-data.bin ./bot.py && pipenv run python ./pstats_write.py",
+            "command": "source ./.env && pipenv run python -m cProfile -o ../BookingBot-data/profile-data.bin ./bot.py && pipenv run python ./pstats_write.py",
             "problemMatcher": []
         },
         {
             "label": "load-admins",
             "type": "shell",
-            "command": "pipenv run python ./manage.py load-admins ../BookingBot-data/admins.txt",
+            "command": "source ./.env && pipenv run python ./manage.py load-admins ../BookingBot-data/admins.txt",
             "problemMatcher": []
         },
         {
             "label": "load-whitelist",
             "type": "shell",
-            "command": "pipenv run python ./manage.py load-whitelist ../BookingBot-data/whitelist.txt",
+            "command": "source ./.env && pipenv run python ./manage.py load-whitelist ../BookingBot-data/whitelist.txt",
             "problemMatcher": []
         }
     ]

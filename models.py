@@ -2,8 +2,10 @@
 """ORM models for bot data."""
 from datetime import date
 import logging
+from typing import List
 
 import peewee
+import playhouse.db_url
 
 from botsettings import min_year
 
@@ -42,7 +44,7 @@ class InputCalendar(peewee.Model):
     year = peewee.IntegerField()
     month = peewee.IntegerField()
 
-    def next_month(self):
+    def next_month(self) -> None:
         """Move input date to next month."""
         self.month += 1
         if self.month > 12:
@@ -120,7 +122,7 @@ class User(peewee.Model):
         """
         return self.get_is_admin() or self.is_whitelisted
 
-    def create_input_calendar(self, date_data: date):
+    def create_input_calendar(self, date_data: date) -> None:
         """Create calendar for inputting date."""
         assert(self.input_calendar is None)
         self.input_calendar = InputCalendar.create(
@@ -128,7 +130,7 @@ class User(peewee.Model):
         )
         self.save()
 
-    def start_input_line_book(self):
+    def start_input_line_book(self) -> None:
         """Start input line for creating new booking item (event)."""
         self.clear_input_line()
         self.input_line_book = InputLineBook.create(
@@ -138,7 +140,7 @@ class User(peewee.Model):
         self.create_input_calendar(date.today())
         self.save()
 
-    def start_input_line_unbook(self):
+    def start_input_line_unbook(self) -> None:
         """Start input line for removing booking item (event)."""
         self.clear_input_line()
         self.input_line_unbook = InputLineUnbook.create(
@@ -148,34 +150,37 @@ class User(peewee.Model):
         self.create_input_calendar(date.today())
         self.save()
 
-    def start_input_line_timetable_date(self):
+    def start_input_line_timetable_date(self) -> None:
         """Start input line for getting timetable."""
         assert(self.input_line_type is None)
         self.input_line_type = 'TIMETABLE_DATE'
         self.create_input_calendar(date.today())
         self.save()
 
-    def clear_input_line(self):
+    def clear_input_line(self) -> None:
         """Clear input line."""
+        objects_to_delete: List[peewee.Model] = []
         if self.input_line_book is not None:
-            self.input_line_book.delete_instance()
+            objects_to_delete.append(self.input_line_book)
             self.input_line_book = None
         if self.input_line_unbook is not None:
-            self.input_line_unbook.delete_instance()
+            objects_to_delete.append(self.input_line_unbook)
             self.input_line_unbook = None
         if self.input_calendar is not None:
-            self.input_calendar.delete_instance()
+            objects_to_delete.append(self.input_calendar)
             self.input_calendar = None
         self.input_line_type = None
         self.save()
+        for obj in objects_to_delete:
+            obj.delete_instance()
 
-    def input_date_next_month(self):
+    def input_date_next_month(self) -> None:
         """Move calendar input date to next month."""
         assert(self.input_calendar is not None)
         self.input_calendar.next_month()
         self.input_calendar.save()
 
-    def input_date_previous_month(self):
+    def input_date_previous_month(self) -> None:
         """Move calendar input date to previous month."""
         assert(self.input_calendar is not None)
         self.input_calendar.previous_month()
@@ -185,24 +190,6 @@ class User(peewee.Model):
         """Metadata."""
 
         database = db_proxy
-        constraints = [
-            peewee.Check(
-                ('((input_line_type = "BOOK")'
-                 'AND (input_line_book IS NOT NULL))'
-                 'OR ((input_line_type != "BOOK")'
-                 'AND (input_line_book IS NULL))')
-            ),
-            peewee.Check(
-                ('((input_line_type = "UNBOOK")'
-                 'AND (input_line_unbook IS NOT NULL))'
-                 'OR ((input_line_type != "UNBOOK")'
-                 'AND (input_line_unbook IS NULL))')
-            ),
-            peewee.Check(
-                ('((input_line_type IS NULL)'
-                 'AND (input_calendar IS NULL))'
-                 'OR (input_line_type IS NOT NULL)')
-            )]
 
 
 class BookingItem(peewee.Model):
@@ -222,11 +209,10 @@ class BookingItem(peewee.Model):
 model_list = [InputLineBook, InputLineUnbook, InputCalendar, User, BookingItem]
 
 
-def db_init(database_filename: str):
+def db_init(database_url: str) -> None:
     """Initialize database connection."""
     logger.info('Initializing database connection...')
-    db_proxy.initialize(
-        peewee.SqliteDatabase(database_filename))
+    db_proxy.initialize(playhouse.db_url.connect(database_url))
     db_proxy.connect()
     db_proxy.create_tables(model_list)
     logger.info('Database connection initialized')

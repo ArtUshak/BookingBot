@@ -34,7 +34,7 @@ def load_admins(admins_file):
             continue
         admin_user_ids.add(int(data))
 
-    models.db_init(botsettings.database_file)
+    models.db_init(botsettings.database_url)
     with models.db_proxy.transaction():
         existing_admins = models.User.select().where(
             models.User.user_id << admin_user_ids
@@ -67,7 +67,7 @@ def load_whitelist(whitelist_file):
             continue
         whitelist_user_ids.add(int(data))
 
-    models.db_init(botsettings.database_file)
+    models.db_init(botsettings.database_url)
     with models.db_proxy.transaction():
         existing_whitelist_users = models.User.select().where(
             models.User.user_id << whitelist_user_ids
@@ -91,7 +91,7 @@ def load_whitelist(whitelist_file):
 @click.argument('username', type=click.STRING)
 def op_username(username):
     """Make user with given username admin."""
-    models.db_init(botsettings.database_file)
+    models.db_init(botsettings.database_url)
     with models.db_proxy.transaction():
         try:
             user = models.User.get(username=username)
@@ -106,7 +106,7 @@ def op_username(username):
 @click.argument('username', type=click.STRING)
 def deop_username(username):
     """Make user with given username admin."""
-    models.db_init(botsettings.database_file)
+    models.db_init(botsettings.database_url)
     with models.db_proxy.transaction():
         try:
             user = models.User.get(username=username)

@@ -1,8 +1,3 @@
 {
-    "python.pythonPath": "/home/artushak/.local/share/virtualenvs/BookingBot-ESpDL_gN/bin/python",
-    "python.linting.pep8Path": "pycodestyle",
-    "python.linting.pep8Enabled": true,
-    "python.linting.pydocstyleEnabled": true,
-    "python.linting.pylintCategorySeverity.convention": "Warning",
-    "python.linting.pylintCategorySeverity.refactor": "Information",
+    "python.pythonPath": "/home/artushak/.local/share/virtualenvs/BookingBot-ESpDL_gN/bin/python"
 }

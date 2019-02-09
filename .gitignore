@@ -87,3 +87,9 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Mypy cache
+.mypy_cache/
+
+# VS Code configuration file with python path (other configuration settings should be set in workspace file)
+.vscode/settings.json

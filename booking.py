@@ -5,7 +5,7 @@ from dataclasses import asdict, dataclass
 from datetime import date, datetime, time, timedelta
 import json
 import logging
-from typing import Set, List, Tuple
+from typing import List, Tuple, Optional
 
 import peewee
 
@@ -20,7 +20,7 @@ logger = logging.getLogger('bot')
 minute_treshold = 15
 
 
-def update_user_data(user_id: int, chat_id: int, username: str):
+def update_user_data(user_id: int, chat_id: int, username: str) -> models.User:
     """
     Update user data.
 
@@ -32,12 +32,14 @@ def update_user_data(user_id: int, chat_id: int, username: str):
         user.username = username
         user.chat_id = chat_id
         user.save()
+        return user
     except models.User.DoesNotExist:
-        models.User.create(
+        user = models.User.create(
             user_id=user_id, chat_id=chat_id, username=username)
+        return user
 
 
-def get_user(user_id: int) -> models.User:
+def get_user(user_id: int) -> Optional[models.User]:
     """
     Return user by ID.
 
@@ -50,7 +52,7 @@ def get_user(user_id: int) -> models.User:
         return None
 
 
-def get_user_by_chat_id(chat_id: int) -> models.User:
+def get_user_by_chat_id(chat_id: int) -> Optional[models.User]:
     """
     Return user by chat ID.
 
@@ -83,12 +85,12 @@ def is_free_time(time_data: datetime, duration: timedelta) -> bool:
     return len(booking_items) == 0
 
 
-def book(user_id: int, time_data: datetime, duration: timedelta,
-         description: str):
+def book(user: models.User, time_data: datetime, duration: timedelta,
+         description: str) -> None:
     """
     Create booking item.
 
-    Create booking item for user with ID `user_id`, with time
+    Create booking item for user `user``, with time
     `time_data`, duration `duration` and description `description`.
 
     If user do not have permissions to request this action, it will
@@ -101,7 +103,6 @@ def book(user_id: int, time_data: datetime, duration: timedelta,
     If time has already passed, action will not be performed and
     `BotTimePassed` will be raised.
     """
-    user: models.User = get_user(user_id)
     if not user.get_is_in_whitelist():
         raise BotNoAccess()
     if time_data <= datetime.now():
@@ -115,7 +116,7 @@ def book(user_id: int, time_data: datetime, duration: timedelta,
     )
 
 
-def get_booking(time_data: datetime) -> models.BookingItem:
+def get_booking(time_data: datetime) -> Optional[models.BookingItem]:
     """
     Get booking for time.
 
@@ -133,7 +134,8 @@ def get_booking(time_data: datetime) -> models.BookingItem:
         return None
 
 
-def unbook(user_id: int, time_data: datetime, force: bool = False):
+def unbook(user: models.User, time_data: datetime,
+           force: bool = False) -> None:
     """
     Remove booking for time.
 
@@ -143,8 +145,8 @@ def unbook(user_id: int, time_data: datetime, force: bool = False):
     bookings or other user's bookings is allowed (if user have right
     permissions).
 
-    If user with ID `user_id` do not have permissions to request this
-    action, it will not be performed and `BotNoAccess` will be raised.
+    If user `user` do not have permissions to request this action,
+    it will not be performed and `BotNoAccess` will be raised.
 
     If time has already passed and `force` parameter is set to
     `False`, action will not be performed and `BotTimePassed` will be
@@ -153,7 +155,6 @@ def unbook(user_id: int, time_data: datetime, force: bool = False):
     If such booking is not found, action will not be performed and
     `BotBookingNotFound` will be raised.
     """
-    user: models.User = get_user(user_id)
     if not user.get_is_in_whitelist():
         raise BotNoAccess()
     if force:
@@ -164,7 +165,7 @@ def unbook(user_id: int, time_data: datetime, force: bool = False):
         if time_data <= datetime.now():
             raise BotTimePassed()
 
-    booking_item: models.BookingItem = get_booking(time_data)
+    booking_item: Optional[models.BookingItem] = get_booking(time_data)
     if booking_item is None:
         raise BotBookingNotFound()
     if not force:
@@ -199,18 +200,17 @@ def get_timetable(user_id: int, start_time_data: datetime = None,
     return list(result.order_by(models.BookingItem.start_datetime))
 
 
-def get_whitelist(user_id: int) -> List[Tuple[int, str]]:
+def get_whitelist(user: models.User) -> List[Tuple[int, str]]:
     """
     Command function.
 
     Return whitelist as list of user names (or `<?>` strings for users
     who are not present in user database).
 
-    If such with ID `user_id` do not have permissions to request this
+    If user `user` do not have permissions to request this
     action, it will not be performed and `BotNoAccess` will be
     raised.
     """
-    user = get_user(user_id)
     if not user.get_is_admin():
         raise BotNoAccess()
     whitelist_users = models.User.select().where(models.User.is_whitelisted)
@@ -226,7 +226,7 @@ def get_whitelist(user_id: int) -> List[Tuple[int, str]]:
     return result
 
 
-def add_user_to_whitelist(user_id: int, target_username: str):
+def add_user_to_whitelist(user: models.User, target_username: str) -> None:
     """
     Command function.
 
@@ -234,11 +234,10 @@ def add_user_to_whitelist(user_id: int, target_username: str):
 
     If such user could not be found, `BotUsernameNotFound` will be raised.
 
-    If user with ID `user_id` do not have permissions to request this
+    If user `user` do not have permissions to request this
     action, it will not be performed and `BotNoAccess` will be
     raised.
     """
-    user = get_user(user_id)
     if user.get_is_admin():
         raise BotNoAccess()
     try:
@@ -249,7 +248,8 @@ def add_user_to_whitelist(user_id: int, target_username: str):
         raise BotUsernameNotFound()
 
 
-def remove_user_from_whitelist(user_id: int, target_username: str):
+def remove_user_from_whitelist(user: models.User,
+                               target_username: str) -> None:
     """
     Command function.
 
@@ -257,11 +257,10 @@ def remove_user_from_whitelist(user_id: int, target_username: str):
 
     If such user could not be found, `BotUsernameNotFound` will be raised.
 
-    If user with ID `user_id` do not have permissions to request this
+    If user `user` do not have permissions to request this
     action, it will not be performed and `BotNoAccess` will be
     raised.
     """
-    user = get_user(user_id)
     if user.get_is_admin():
         raise BotNoAccess()
     try:

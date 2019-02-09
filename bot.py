@@ -4,6 +4,7 @@ import calendar
 import datetime
 import logging
 import re
+from typing import List, Optional, Dict, Callable, Any, Tuple
 
 import telebot
 import telebot.types
@@ -25,8 +26,8 @@ from botsettings import (message_indev, message_operation_ok,
                          message_prompt_date,
                          message_book_1, message_book_2, message_book_3,
                          message_unbook_1,
-                         contactlist_file, help_file, token_file, proxy_file,
-                         database_file)
+                         contactlist_file, help_file, token, proxy_data,
+                         database_url)
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
                         BotBookingNotFound, BotUsernameNotFound)
@@ -35,7 +36,7 @@ from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
 logger = logging.getLogger('bot')
 
 
-def get_help(help_filename):
+def get_help(help_filename: str) -> str:
     """
     Load help text.
 
@@ -43,11 +44,10 @@ def get_help(help_filename):
     """
     logger.info('Loading help text...')
     with open(help_filename, encoding='utf-8') as help_file:
-        help_text = help_file.read()
-    return help_text
+        return help_file.read()
 
 
-def get_contactlist(contactlist_filename):
+def get_contactlist(contactlist_filename: str) -> str:
     """
     Load contact list text.
 
@@ -57,66 +57,33 @@ def get_contactlist(contactlist_filename):
     logger.info('Loading contact list...')
     with open(contactlist_filename, encoding='utf-8') \
             as contactlist_file:
-        contactlist_text = contactlist_file.read()
-    return contactlist_text
-
-
-def get_token(filename):
-    """
-    Load token.
-
-    Load token from from first line of file `filename` and
-    return it, without leading and trailing whitespaces.
-    """
-    logger.info('Loading token...')
-    with open(filename, encoding='utf-8') as token_file:
-        token = token_file.readline().strip()
-    return token
-
-
-def get_proxy(filename):
-    """
-    Load proxy URL.
-
-    Load proxy type and URL from from first line of file `filename`
-    and return it as tuple of strings, without leading and trailing
-    whitespaces.
-    """
-    logger.info('Loading proxy data...')
-    with open(filename, encoding='utf-8') as token_file:
-        proxy = token_file.readline().strip().split(' ', 1)
-    if len(proxy) < 2:
-        return None
-    else:
-        return proxy
+        return contactlist_file.read()
 
 
 logger.info('Starting bot...')
 
-message_help = get_help(help_file)
+message_help: str = get_help(help_file)
 logger.info('Help message:\n' + message_help)
 
-message_contact_list = get_contactlist(contactlist_file)
+message_contact_list: str = get_contactlist(contactlist_file)
 logger.info('Contact list:\n' + message_contact_list)
 
-models.db_init(database_file)
+models.db_init(database_url)
 
-token = get_token(token_file)
 logger.info('Token loaded')
 
-proxy_data = get_proxy(proxy_file)
 logger.info('Proxy data loaded')
 if proxy_data is not None:
     telebot.apihelper.proxy = {
         proxy_data[0]: proxy_data[1]
     }
 
-bot = telebot.TeleBot(token)
+bot: telebot.TeleBot = telebot.TeleBot(token)
 
 logger.info('Bot instance created')
 
 
-def get_error_message(exception, if_ok=None):
+def get_error_message(exception, if_ok: Optional[str] = None) -> str:
     """
     Return error message based on exception `exception`.
 
@@ -146,7 +113,7 @@ def get_error_message(exception, if_ok=None):
         return message_misc_error
 
 
-def format_timetable(timetable_data):
+def format_timetable(timetable_data: List[models.BookingItem]) -> str:
     """
     Return formatted timetable `timetable_data` as string.
 
@@ -156,13 +123,11 @@ def format_timetable(timetable_data):
     different line, with data about start and end time and
     description.
     """
-    # TODO: probably split timetable messages using telebot.util.split_string()
-    date_str = None
-    result = message_timetable_header + '\n'
+    date: Optional[datetime.date] = None
+    result: str = message_timetable_header + '\n'
     for timetable_item in timetable_data:
-        curr_date_str = timetable_item.start_datetime.strftime('%Y-%m-%d')
-        if date_str != curr_date_str:
-            date_str = curr_date_str
+        if timetable_item.start_datetime.date() != date:
+            date_str: str = timetable_item.start_datetime.strftime('%Y-%m-%d')
             result += message_timetable_date_row.format(date_str)
             result += '\n'
         result += message_timetable_row.format(
@@ -174,32 +139,51 @@ def format_timetable(timetable_data):
     return result
 
 
-def bot_command_handler(name, param_num_min=-1, param_maxsplit=-1,
-                        need_transaction=True):
+def split_message(message: str, max_length: int) -> List[str]:
+    """
+    Split message string to list if necessary.
+
+    Split message string to list of strings with length less
+    than `max_length`.
+    """
+    pass  # TODO
+
+
+def bot_command_handler(
+    name: str, param_num_min: int = -1, param_maxsplit: int = -1,
+    need_transaction: bool = True
+) -> Callable[
+        [Callable[[telebot.types.Message, models.User,
+                   List[str]], Optional[Dict[str, Any]]]],
+        Callable[[telebot.types.Message], None],
+]:
     """
     Create decorator for command hanling.
 
     This decorator will wrap handler functions with code that can take
     care of getting sender ID, sending error messages, etc.
     """
-    def wrapper(func):
-        def wrapper_func(message):
+    def wrapper(
+        func: Callable[[telebot.types.Message, models.User,
+                        List[str]], Optional[Dict[str, Any]]]
+    ) -> Callable[[telebot.types.Message], None]:
+        def wrapper_func(message: telebot.types.Message) -> None:
             with models.db_proxy:
-                sender_id = process_message_sender(message)
+                sender: models.User = process_message_sender(message)
                 logger.info(
                     'Called command {} from user {} ({})'.format(
-                        name, sender_id, message.from_user.username
+                        name, sender.user_id, message.from_user.username
                     )
                 )
-                exc = None
-                result = None
+                exc: Optional[Exception] = None
+                result: Optional[Dict[str, Any]] = None  # TODO: typing
                 try:
-                    message_tokens = message.text.split(
+                    message_tokens: List[str] = message.text.split(
                         maxsplit=param_maxsplit)
                     if len(message_tokens) < param_num_min:
                         raise BotBadInput()
 
-                    result = func(message, sender_id, message_tokens)
+                    result = func(message, sender, message_tokens)
 
                 except BotCommandException as exception:
                     exc = exception
@@ -211,8 +195,8 @@ def bot_command_handler(name, param_num_min=-1, param_maxsplit=-1,
                     )
                     raise
 
-                result_message = None
-                result_markup = None
+                result_message: Optional[Any] = None
+                result_markup: Optional[Any] = None
                 if result is not None:
                     result_message = result.get('message')
                     result_markup = result.get('markup')
@@ -230,29 +214,39 @@ def bot_command_handler(name, param_num_min=-1, param_maxsplit=-1,
     return wrapper
 
 
-def bot_button_handler(name, need_transaction=True):
+def bot_button_handler(
+    name: str, need_transaction: bool = True
+) -> Callable[
+    [Callable[[telebot.types.CallbackQuery, models.User],
+              Optional[Dict[str, Any]]]],
+    Callable[[telebot.types.CallbackQuery], None]
+]:
     """
     Create decorator for button hanling.
 
     This decorator will wrap handler functions with code that can take
     care of getting sender ID, sending error messages, etc.
     """
-    def wrapper(func):
-        def wrapper_func(call):
+    def wrapper(
+        func: Callable[[telebot.types.CallbackQuery,
+                        models.User], Optional[Dict[str, Any]]]
+    ) -> Callable[[telebot.types.CallbackQuery], None]:
+        def wrapper_func(call: telebot.types.CallbackQuery) -> None:
             with models.db_proxy:
-                chat_id = call.message.chat.id
-                sender = booking.get_user_by_chat_id(chat_id)
+                chat_id: int = call.message.chat.id
+                sender: Optional[models.User] = booking.get_user_by_chat_id(
+                    chat_id)
                 if sender is None:
                     return
                 logger.info('Called button {} from user {}'.format(
                     name, sender.user_id))
-                exc = None
-                result = None
-                result_ignore = None
-                result_message = None
-                result_markup = None
-                result_edit_markup = None
-                result_edit_message = None
+                exc: Optional[Exception] = None  # TODO: typing
+                result: Optional[Dict[str, Any]] = None
+                result_ignore: Optional[Any] = None
+                result_message: Optional[Any] = None
+                result_markup: Optional[Any] = None
+                result_edit_markup: Optional[Any] = None
+                result_edit_message: Optional[Any] = None
                 try:
                     result = func(call, sender)
                 except BotCommandException as exception:
@@ -296,7 +290,7 @@ def bot_button_handler(name, need_transaction=True):
     return wrapper
 
 
-def format_whitelist(whitelist):
+def format_whitelist(whitelist: List[Tuple[int, str]]) -> str:
     """
     Return formatted whitelist `whitelist` as string.
 
@@ -305,29 +299,33 @@ def format_whitelist(whitelist):
     In resulting string each user should be placed on
     different line.
     """
-    result = message_whitelist_header + '\n'
+    result: str = message_whitelist_header + '\n'
     for whitelist_item in whitelist:
         result += message_whitelist_row.format(*whitelist_item)
         result += '\n'
     return result
 
 
-def process_message_sender(message):
+def process_message_sender(
+    message: telebot.types.Message
+) -> models.User:
     """
     Process message and update user data.
 
     Process `message`, update user data and return user id from `message`.
     """
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-    username = message.from_user.username
-    booking.update_user_data(user_id, chat_id, username)
-    return user_id
+    chat_id: int = message.chat.id
+    user_id: int = message.from_user.id
+    username: str = message.from_user.username
+    user: models.User = booking.update_user_data(user_id, chat_id, username)
+    return user
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'help')
 @bot_button_handler('help')
-def process_button_help(_call, _sender):
+def process_button_help(
+    _call: telebot.types.CallbackQuery, _sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `help`.
 
@@ -341,7 +339,9 @@ def process_button_help(_call, _sender):
 
 @bot.message_handler(commands=['start', 'help'])
 @bot_command_handler('/help')
-def process_cmd_help(message, _sender_id, _params):
+def process_cmd_help(
+    message: telebot.types.Message, _sender: models.User, _params: List[str]
+) -> Optional[Dict[str, Any]]:
     """
     Command `/help`.
 
@@ -406,7 +406,7 @@ def get_calendar(year, month):
     return markup
 
 
-def get_cmd_keyboard():
+def get_cmd_keyboard() -> telebot.types.InlineKeyboardMarkup:
     """Create inline keyboard for bot functions and return it."""
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(
@@ -442,7 +442,9 @@ def get_cmd_keyboard():
 
 @bot.callback_query_handler(func=lambda call: call.data == 'book')
 @bot_button_handler('book')
-def process_button_book(_call, sender):
+def process_button_book(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `book`.
 
@@ -460,7 +462,10 @@ def process_button_book(_call, sender):
 
 @bot.message_handler(commands=['book'])
 @bot_command_handler('/book', param_num_min=5, param_maxsplit=4)
-def process_cmd_book(message, sender_id, params):
+def process_cmd_book(
+    message: telebot.types.Message, sender: models.User,
+    params: List[str]
+) -> Optional[Dict[str, Any]]:
     """
     Command `/book`.
 
@@ -485,12 +490,15 @@ def process_cmd_book(message, sender_id, params):
     except ValueError:
         raise BotBadInput()
     else:
-        booking.book(sender_id, time, duration, description)
+        booking.book(sender, time, duration, description)
+    return None
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'unbook')
 @bot_button_handler('unbook')
-def process_button_unbook(_call, sender):
+def process_button_unbook(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `unbook`.
 
@@ -508,7 +516,8 @@ def process_button_unbook(_call, sender):
 
 @bot.message_handler(commands=['unbook'])
 @bot_command_handler('/unbook', param_num_min=3, param_maxsplit=3)
-def process_cmd_unbook(message, sender_id, params):
+def process_cmd_unbook(message: telebot.types.Message, sender: models.User,
+                       params: List[str]) -> Optional[Dict[str, Any]]:
     """
     Command `/unbook`.
 
@@ -527,12 +536,15 @@ def process_cmd_unbook(message, sender_id, params):
     except ValueError:
         raise BotBadInput()
     else:
-        booking.unbook(sender_id, time)
+        booking.unbook(sender, time)
+    return None
 
 
 @bot.message_handler(commands=['unbook_force'])
 @bot_command_handler('/unbook_force', param_num_min=3, param_maxsplit=3)
-def process_cmd_unbook_force(message, sender_id, params):
+def process_cmd_unbook_force(
+    message, sender, params
+) -> Optional[Dict[str, Any]]:
     """
     Command `/unbook_force`.
 
@@ -551,12 +563,15 @@ def process_cmd_unbook_force(message, sender_id, params):
     except ValueError:
         raise BotBadInput()
     else:
-        booking.unbook(sender_id, time, force=True)
+        booking.unbook(sender, time, force=True)
+    return None
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable')
 @bot_button_handler('timetable')
-def process_button_timetable(_call, sender):
+def process_button_timetable(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `timetable`.
 
@@ -574,13 +589,14 @@ def process_button_timetable(_call, sender):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable_today')
 @bot_button_handler('timetable_today')
-def process_button_timetable_today(_call, sender):
+def process_button_timetable_today(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `timetable_today`.
 
     Display timetable for current day.
     """
-    timetable = []
     start_time = datetime.datetime.today()
     end_time = start_time + datetime.timedelta(days=1)
     timetable = booking.get_timetable(sender.user_id, start_time,
@@ -593,7 +609,9 @@ def process_button_timetable_today(_call, sender):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable_date')
 @bot_button_handler('timetable_date')
-def process_button_timetable_date(_call, sender):
+def process_button_timetable_date(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `timetable_date`.
 
@@ -609,7 +627,10 @@ def process_button_timetable_date(_call, sender):
 
 @bot.message_handler(commands=['timetable'])
 @bot_command_handler('/timetable', param_maxsplit=2)
-def process_cmd_timetable(message, sender_id, params):
+def process_cmd_timetable(
+    message: telebot.types.Message, sender: models.User,
+    params: List[str]
+) -> Optional[Dict[str, Any]]:
     """
     Command `/timetable`.
 
@@ -639,7 +660,7 @@ def process_cmd_timetable(message, sender_id, params):
                                                    datetime.time.min)
             end_time = start_time + datetime.timedelta(days=1)
 
-    timetable = booking.get_timetable(sender_id, start_time, end_time)
+    timetable = booking.get_timetable(sender, start_time, end_time)
     return {
         'message': format_timetable(timetable),
     }
@@ -647,7 +668,9 @@ def process_cmd_timetable(message, sender_id, params):
 
 @bot.message_handler(commands=['logmyinfo'])
 @bot_command_handler('/logmyinfo')
-def process_cmd_logmyinfo(message, _sender_id, _params):
+def process_cmd_logmyinfo(
+    message: telebot.types.Message, _sender: models.User, _params: List[str]
+) -> Optional[Dict[str, Any]]:
     """
     Command `/logmyinfo`.
 
@@ -655,12 +678,14 @@ def process_cmd_logmyinfo(message, _sender_id, _params):
 
     Do nothing, just write user ID and username to log and remember user data.
     """
-    pass
+    return None
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'contactlist')
 @bot_button_handler('contactlist')
-def process_button_contactlist(_call, _sender):
+def process_button_contactlist(
+    _call: telebot.types.CallbackQuery, _sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `contactlist`.
 
@@ -674,7 +699,9 @@ def process_button_contactlist(_call, _sender):
 
 @bot.message_handler(commands=['contactlist'])
 @bot_command_handler('/contactlist')
-def process_cmd_contactlist(message, _sender_id, _params):
+def process_cmd_contactlist(
+    message: telebot.types.Message, _sender: models.User, _params: List[str]
+) -> Optional[Dict[str, Any]]:
     """
     Command `/contactlist`.
 
@@ -689,7 +716,9 @@ def process_cmd_contactlist(message, _sender_id, _params):
 
 @bot.message_handler(commands=['whitelist'])
 @bot_command_handler('/whitelist', param_maxsplit=3)
-def process_cmd_whitelist(message, sender_id, params):
+def process_cmd_whitelist(
+    message: telebot.types.Message, sender: models.User, params: List[str]
+) -> Optional[Dict[str, Any]]:
     """
     Command `/whitelist`.
 
@@ -705,15 +734,15 @@ def process_cmd_whitelist(message, sender_id, params):
     """
     msg_text = None
     if len(params) == 1:
-        whitelist = booking.get_whitelist(sender_id)
+        whitelist = booking.get_whitelist(sender)
         msg_text = format_whitelist(whitelist)
     elif len(params) == 3:
         action_str = params[1].lower()
         username = params[2]
         if action_str == 'add':
-            booking.add_user_to_whitelist(sender_id, username)
+            booking.add_user_to_whitelist(sender, username)
         elif action_str == 'remove':
-            booking.remove_user_from_whitelist(sender_id, username)
+            booking.remove_user_from_whitelist(sender, username)
         else:
             raise BotBadInput()
     else:
@@ -725,14 +754,16 @@ def process_cmd_whitelist(message, sender_id, params):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'next_month')
 @bot_button_handler('next_month')
-def process_button_next_month(_call, sender):
+def process_button_next_month(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `next_month`.
 
     Change to next month if calendar is shown.
     """
     if not sender.input_calendar:
-        return
+        return None
 
     sender.input_calendar.next_month()
     return {
@@ -744,14 +775,16 @@ def process_button_next_month(_call, sender):
 
 @bot.callback_query_handler(func=lambda call: call.data == 'previous_month')
 @bot_button_handler('previous_month')
-def process_button_previous_month(_call, sender):
+def process_button_previous_month(
+    _call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `previous_month`.
 
     Change to previous month if calendar is shown.
     """
     if not sender.input_calendar:
-        return
+        return None
 
     if sender.input_calendar.previous_month():
         return {
@@ -766,7 +799,7 @@ def process_button_previous_month(_call, sender):
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'ignore')
-def process_button_ignore(call):
+def process_button_ignore(call: telebot.types.CallbackQuery) -> None:
     """
     Button `ignore`.
 
@@ -778,14 +811,16 @@ def process_button_ignore(call):
 @bot.callback_query_handler(
     func=lambda call: call.data.startswith('calendar_day:'))
 @bot_button_handler('calendar_day')
-def process_button_calendar_day(call, sender):
+def process_button_calendar_day(
+    call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
     """
     Button `calendar_day:<DAY>`.
 
     Process calendar input of day `<DAY>`.
     """
     if not sender.input_calendar:
-        return
+        return None
 
     regex_match = re.match(r'calendar_day:([0-9]+)', call.data)
     if regex_match is None:
@@ -831,12 +866,13 @@ def process_button_calendar_day(call, sender):
             'markup': None,
         }
 
+    return None
+
 
 @bot.message_handler()
-def process_text(message):
+def process_text(message: telebot.types.Message) -> None:
     """Process text input."""
-    sender_id = process_message_sender(message)
-    sender = booking.get_user(sender_id)
+    sender = process_message_sender(message)
     if sender is None:
         return
 
@@ -876,7 +912,7 @@ def process_text(message):
                 duration = datetime.timedelta(
                     sender.input_line_book.duration_seconds // 86400,
                     sender.input_line_book.duration_seconds % 86400)
-                booking.book(sender_id, date, duration, message.text)
+                booking.book(sender, date, duration, message.text)
                 sender.clear_input_line()
         elif sender.input_line_type == 'UNBOOK':
             try:
@@ -889,7 +925,7 @@ def process_text(message):
                 date = datetime.datetime.combine(
                     sender.input_line_unbook.start_date,
                     input_time)
-                booking.unbook(sender_id, date)
+                booking.unbook(sender, date)
                 sender.clear_input_line()
 
     except BotCommandException as exception:

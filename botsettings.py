@@ -2,11 +2,13 @@
 """Settings for bot."""
 import locale
 import logging
+import os
+from typing import Optional, List
 
 import telebot
 
 
-log_file = '../BookingBot-data/log.log'
+log_file: str = os.environ.get('BOT_LOG', default='../BookingBot-data/log.log')
 
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)-15s %(message)s',
@@ -59,7 +61,14 @@ message_unbook_1 = 'Введите время события в формате �
 
 contactlist_file = '../BookingBot-data/contacts.txt'
 help_file = 'help.txt'
-token_file = '../BookingBot-data/b1540-n38-token.txt'
-proxy_file = '../BookingBot-data/proxy.txt'
 
-database_file = '../BookingBot-data/data.db'
+token = os.environ.get('TOKEN')
+
+proxy_str: Optional[str] = os.environ.get('TELEGRAM_PROXY')
+proxy_data: Optional[List[str]] = None
+if (proxy_str is not None) and (proxy_str != 'none'):
+    proxy_data = proxy_str.split()[:2]
+
+database_url = os.environ.get(
+    'DATABASE_URL', default='sqlite:/../BookingBot-data/data.db'
+)
