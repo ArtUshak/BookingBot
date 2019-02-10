@@ -27,7 +27,7 @@ from botsettings import (message_operation_ok,
                          message_book_1, message_book_2, message_book_3,
                          message_unbook_1,
                          contactlist_file, help_file, token, proxy_data,
-                         database_url)
+                         database_url, calendar_locale)
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
                         BotBookingNotFound, BotUsernameNotFound)
@@ -391,25 +391,29 @@ def get_calendar(year: int, month: int) -> telebot.types.InlineKeyboardMarkup:
 
     Calendar will be created for `year` and `month`.
     """
-    # TODO
+    # TODO: refactor
     markup = telebot.types.InlineKeyboardMarkup()
+    text_calendar = calendar.LocaleTextCalendar(locale=calendar_locale)
 
-    # First row - Month and Year
+    # First row - month and year
     row: List[telebot.types.InlineKeyboardButton] = []
     row.append(
         telebot.types.InlineKeyboardButton(
-            calendar.month_name[month] + ' ' + str(year),
-            callback_data='ignore'))
+            text_calendar.formatmonthname(year, month, 100).strip(),
+            callback_data='ignore'
+        )
+    )
     markup.row(*row)
 
-    # Second row - Week Days
-    week_days: List[str] = list(
-        map(lambda day_name: day_name[0], calendar.day_name)
-    )
+    # Second row - week days
+    week_days: List[str] = [
+        text_calendar.formatweekday(i, 8).strip() for i in range(7)
+    ]
     row = []
     for week_day in week_days:
         row.append(telebot.types.InlineKeyboardButton(
-            week_day, callback_data='ignore'))
+            week_day, callback_data='ignore'
+        ))
     markup.row(*row)
 
     my_calendar = calendar.monthcalendar(year, month)
@@ -418,10 +422,12 @@ def get_calendar(year: int, month: int) -> telebot.types.InlineKeyboardMarkup:
         for day in week:
             if day == 0:
                 row.append(telebot.types.InlineKeyboardButton(
-                    ' ', callback_data='ignore'))
+                    ' ', callback_data='ignore'
+                ))
             else:
                 row.append(telebot.types.InlineKeyboardButton(
-                    str(day), callback_data='calendar_day:{}'.format(day)))
+                    str(day), callback_data='calendar_day:{}'.format(day)
+                ))
         markup.row(*row)
 
     # Last row - Buttons

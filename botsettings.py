@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 """Settings for bot."""
-import locale
 import logging
 import os
-from typing import Optional, List
+from typing import Optional, List, Tuple
 
 
 log_file: str = os.environ.get('BOT_LOG', default='../BookingBot-data/log.log')
@@ -12,8 +11,6 @@ logging.basicConfig(level=logging.INFO,
                     format='%(asctime)-15s %(message)s',
                     handlers=[logging.FileHandler(log_file),
                               logging.StreamHandler()])
-
-locale.setlocale(locale.LC_ALL, ('ru_RU', 'UTF8',))
 
 min_year = 1970
 
@@ -57,7 +54,9 @@ message_book_2 = ('Введите длительность события в ф�
 message_book_3 = 'Введите описание события'
 message_unbook_1 = 'Введите время события в формате часы:минуты'
 
-contactlist_file = '../BookingBot-data/contacts.txt'
+contactlist_file: str = os.environ.get(
+    'CONTACTLIST_FILE', default='../BookingBot-data/contacts.txt'
+)
 help_file = 'help.txt'
 
 token = os.environ.get('TOKEN')
@@ -70,3 +69,9 @@ if (proxy_str is not None) and (proxy_str != 'none'):
 database_url = os.environ.get(
     'DATABASE_URL', default='sqlite:/../BookingBot-data/data.db'
 )
+
+calendar_locale_str: Optional[str] = os.environ.get('BOT_CALENDAR_LOCALE')
+calendar_locale: Optional[Tuple[Optional[str], Optional[str]]] = None
+if calendar_locale_str is not None:
+    calendar_locale_tokens: List[str] = calendar_locale_str.split('.')
+    calendar_locale = (calendar_locale_tokens[0], calendar_locale_tokens[1])

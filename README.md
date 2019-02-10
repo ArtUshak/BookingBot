@@ -2,7 +2,7 @@
 
 Telegram bot for booking auditorium
 
-See `help.txt` for information about commands (it's in russian, not trasnslated into english yet).
+See `help.txt` for information about commands (it is in russian, not trasnslated into english yet).
 
 You can also see documentation in python code.
 
@@ -18,8 +18,7 @@ Environment variable `TOKEN` should be set to token for Telegram API.
 
 ### Contact list file
 
-File name should be set in variable `contactlist_file`.
-
+Environment variable `CONTACTLIST_FILE` should be set to name of contact list file, default value is `../BookingBot-data/contacts.txt`.
 This is text file, its content will be displayed to users who type `/contactlist` command.
 
 ### Proxy file
@@ -61,6 +60,16 @@ export DATABASE_URL="sqlite:/../BookingBot-data/data.db"
 Environment variable `BOT_LOG` should be set to log file name, default value is `../BookingBot-data/log.log`.
 
 Log will be appended to this file.
+
+### Calendar locale
+
+Environment variable `BOT_CALENDAR_LOCALE` should be set to locale used for rendering calendar, if it is not set, system locale is used.
+
+Example:
+
+```sh
+export BOT_CALENDAR_LOCALE=ru_RU.UTF-8
+```
 
 ## Management
 
