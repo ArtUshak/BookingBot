@@ -178,13 +178,15 @@ class User(peewee.Model):
 
     def input_date_next_month(self) -> None:
         """Move calendar input date to next month."""
-        assert(self.input_calendar is not None)
+        if self.input_calendar is None:
+            raise AssertionError()
         self.input_calendar.next_month()
         self.input_calendar.save()
 
     def input_date_previous_month(self) -> None:
         """Move calendar input date to previous month."""
-        assert(self.input_calendar is not None)
+        if self.input_calendar is None:
+            raise AssertionError()
         self.input_calendar.previous_month()
         self.input_calendar.save()
 
