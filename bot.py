@@ -127,6 +127,7 @@ def format_timetable(timetable_data: List[models.BookingItem]) -> str:
     result: str = message_timetable_header + '\n'
     for timetable_item in timetable_data:
         if timetable_item.start_datetime.date() != date:
+            date = timetable_item.start_datetime.date()
             date_str: str = timetable_item.start_datetime.strftime('%Y-%m-%d')
             result += message_timetable_date_row.format(date_str)
             result += '\n'
@@ -146,7 +147,31 @@ def split_message(message: str, max_length: int) -> List[str]:
     Split message string to list of strings with length less
     than `max_length`.
     """
-    pass  # TODO
+    result: List[str] = []
+    while len(message) > max_length:
+        split_position: int = message.rfind('\n', 1, max_length)
+        if split_position < 0:
+            split_position = message.rfind(' ', 1, max_length)
+        if split_position < 0:
+            split_position = max_length
+        result.append(message[:split_position])
+        message = message[split_position+1:]
+    if len(message) > 0:
+        result.append(message)
+    return result
+
+
+def send_message(
+    chat_id: int, message_text: str,
+    reply_markup: telebot.types.InlineKeyboardMarkup = None
+) -> None:
+    """Process message and send it to chat with id `chat_id`."""
+    message_parts: List[str] = split_message(message_text, 4096)
+    if len(message_parts) == 0:
+        return
+    for message_part in message_parts[:-1]:
+        bot.send_message(chat_id, message_part)
+    bot.send_message(chat_id, message_parts[-1], reply_markup=reply_markup)
 
 
 def bot_command_handler(
@@ -201,10 +226,11 @@ def bot_command_handler(
                     result_message = result.get('message')
                     result_markup = result.get('markup')
                 try:
-                    bot.send_message(message.chat.id,
-                                     get_error_message(
-                                         exc, if_ok=result_message),
-                                     reply_markup=result_markup)
+                    send_message(
+                        message.chat.id,
+                        get_error_message(exc, if_ok=result_message),
+                        reply_markup=result_markup
+                    )
                 except telebot.apihelper.ApiException as exc:
                     if exc.result.status_code not in [403]:
                         raise
@@ -276,10 +302,11 @@ def bot_button_handler(
                             reply_markup=result_edit_markup)
                     else:
                         try:
-                            bot.send_message(
-                                chat_id, get_error_message(
-                                    exc, if_ok=result_message),
-                                reply_markup=result_markup)
+                            send_message(
+                                chat_id,
+                                get_error_message(exc, if_ok=result_message),
+                                reply_markup=result_markup
+                            )
                         except telebot.apihelper.ApiException as exc:
                             if exc.result.status_code not in [403]:
                                 raise
@@ -834,8 +861,10 @@ def process_button_calendar_day(
                                sender.input_calendar.month,
                                day)
     try:
-        bot.send_message(call.message.chat.id,
-                         message_input_date.format(input_date))
+        send_message(
+            call.message.chat.id,
+            message_input_date.format(input_date)
+        )
     except telebot.apihelper.ApiException as exc:
         if exc.result.status_code not in [403]:
             raise
@@ -935,9 +964,11 @@ def process_text(message: telebot.types.Message) -> None:
         logger.error('Error occurred when processing text message')
         raise
     try:
-        bot.send_message(message.chat.id,
-                         get_error_message(exc, if_ok=msg_text),
-                         reply_markup=markup)
+        send_message(
+            message.chat.id,
+            get_error_message(exc, if_ok=msg_text),
+            reply_markup=markup
+        )
     except telebot.apihelper.ApiException as exc:
         if exc.result.status_code not in [403]:
             raise
