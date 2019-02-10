@@ -124,11 +124,13 @@ class User(peewee.Model):
 
     def create_input_calendar(self, date_data: date) -> None:
         """Create calendar for inputting date."""
-        assert(self.input_calendar is None)
+        old_input_calendar = self.input_calendar
         self.input_calendar = InputCalendar.create(
             year=date_data.year, month=date_data.month
         )
         self.save()
+        if old_input_calendar is not None:
+            old_input_calendar.delete_instance()
 
     def start_input_line_book(self) -> None:
         """Start input line for creating new booking item (event)."""
@@ -152,7 +154,7 @@ class User(peewee.Model):
 
     def start_input_line_timetable_date(self) -> None:
         """Start input line for getting timetable."""
-        assert(self.input_line_type is None)
+        self.clear_input_line()
         self.input_line_type = 'TIMETABLE_DATE'
         self.create_input_calendar(date.today())
         self.save()
