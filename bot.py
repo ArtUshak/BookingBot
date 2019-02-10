@@ -550,19 +550,11 @@ def process_button_unbook(
     }
 
 
-@bot.message_handler(commands=['unbook'])
-@bot_command_handler('/unbook', param_num_min=3, param_maxsplit=3)
-def process_cmd_unbook(message: telebot.types.Message, sender: models.User,
-                       params: List[str]) -> Optional[Dict[str, Any]]:
-    """
-    Command `/unbook`.
-
-    Syntax: `/unbook <DATE> <TIME>`
-
-    Remove booking that intersect with moment `<DATE> <TIME>`. Do not
-    remove booking if it was not added by current user or if it has
-    already passed.
-    """
+def execute_cmd_unbook(
+    message: telebot.types.Message, sender: models.User,
+    params: List[str], force: bool
+) -> Optional[Dict[str, Any]]:
+    """Execute unbook command with given `force` parameter."""
     date_str = params[1]
     time_str = params[2]
     logger.info(
@@ -572,14 +564,33 @@ def process_cmd_unbook(message: telebot.types.Message, sender: models.User,
     except ValueError:
         raise BotBadInput()
     else:
-        booking.unbook(sender, time)
+        booking.unbook(sender, time, force=force)
     return None
+
+
+@bot.message_handler(commands=['unbook'])
+@bot_command_handler('/unbook', param_num_min=3, param_maxsplit=3)
+def process_cmd_unbook(
+    message: telebot.types.Message, sender: models.User,
+    params: List[str]
+) -> Optional[Dict[str, Any]]:
+    """
+    Command `/unbook`.
+
+    Syntax: `/unbook <DATE> <TIME>`
+
+    Remove booking that intersect with moment `<DATE> <TIME>`. Do not
+    remove booking if it was not added by current user or if it has
+    already passed.
+    """
+    return execute_cmd_unbook(message, sender, params, False)
 
 
 @bot.message_handler(commands=['unbook_force'])
 @bot_command_handler('/unbook_force', param_num_min=3, param_maxsplit=3)
 def process_cmd_unbook_force(
-    message, sender, params
+    message: telebot.types.Message, sender: models.User,
+    params: List[str]
 ) -> Optional[Dict[str, Any]]:
     """
     Command `/unbook_force`.
@@ -590,17 +601,7 @@ def process_cmd_unbook_force(
     restrictions applied `/unbook` command, although still respecting
     user permissions.
     """
-    date_str = params[1]
-    time_str = params[2]
-    logger.info(
-        'Called /unbook for date {}, time {}'.format(date_str, time_str))
-    try:
-        time = booking.process_date_time(date_str, time_str)
-    except ValueError:
-        raise BotBadInput()
-    else:
-        booking.unbook(sender, time, force=True)
-    return None
+    return execute_cmd_unbook(message, sender, params, True)
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'timetable')

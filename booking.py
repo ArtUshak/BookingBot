@@ -152,7 +152,7 @@ def unbook(user: models.User, time_data: datetime,
     if not user.get_is_in_whitelist():
         raise BotNoAccess()
     if force:
-        if not user.is_admin():
+        if not user.get_is_admin():
             raise BotNoAccess()
 
     if not force:
