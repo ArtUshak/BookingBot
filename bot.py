@@ -231,8 +231,8 @@ def bot_command_handler(
                         get_error_message(exc, if_ok=result_message),
                         reply_markup=result_markup
                     )
-                except telebot.apihelper.ApiException as exc:
-                    if exc.result.status_code not in [403]:
+                except telebot.apihelper.ApiException as api_exc:
+                    if api_exc.result.status_code not in [403]:
                         raise
 
         return wrapper_func
@@ -874,8 +874,8 @@ def process_button_calendar_day(
             call.message.chat.id,
             message_input_date.format(input_date)
         )
-    except telebot.apihelper.ApiException as exc:
-        if exc.result.status_code not in [403]:
+    except telebot.apihelper.ApiException as api_exc:
+        if api_exc.result.status_code not in [403]:
             raise
 
     if sender.input_line_type == 'TIMETABLE_DATE':
@@ -978,8 +978,8 @@ def process_text(message: telebot.types.Message) -> None:
             get_error_message(exc, if_ok=msg_text),
             reply_markup=markup
         )
-    except telebot.apihelper.ApiException as exc:
-        if exc.result.status_code not in [403]:
+    except telebot.apihelper.ApiException as api_exc:
+        if api_exc.result.status_code not in [403]:
             raise
 
 
