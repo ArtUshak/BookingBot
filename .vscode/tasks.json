@@ -7,7 +7,7 @@
             "label": "update",
             "type": "shell",
             "command": "source ./.env && pipenv update --dev",
-            "problemMatcher": [],
+            "problemMatcher": []
         },
         {
             "label": "run",

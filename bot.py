@@ -307,8 +307,8 @@ def bot_button_handler(
                                 get_error_message(exc, if_ok=result_message),
                                 reply_markup=result_markup
                             )
-                        except telebot.apihelper.ApiException as exc:
-                            if exc.result.status_code not in [403]:
+                        except telebot.apihelper.ApiException as api_exc:
+                            if api_exc.result.status_code not in [403]:
                                 raise
                 bot.answer_callback_query(call.id, text='')
 
