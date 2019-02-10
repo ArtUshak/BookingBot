@@ -1,5 +1,7 @@
 # BookingBot
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1b958e1c7a664b6a93270dc8c1f7534b)](https://app.codacy.com/app/ArtUshak/BookingBot?utm_source=github.com&utm_medium=referral&utm_content=ArtUshak/BookingBot&utm_campaign=Badge_Grade_Dashboard)
+
 Telegram bot for booking auditorium
 
 See `help.txt` for information about commands (it is in russian, not trasnslated into english yet).
