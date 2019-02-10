@@ -16,6 +16,7 @@ pycodestyle = "*"
 pydocstyle = "*"
 autopep8 = "*"
 mypy = "*"
+flake8 = "*"
 
 [requires]
 python_version = "3.7"

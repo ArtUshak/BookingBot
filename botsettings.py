@@ -5,8 +5,6 @@ import logging
 import os
 from typing import Optional, List
 
-import telebot
-
 
 log_file: str = os.environ.get('BOT_LOG', default='../BookingBot-data/log.log')
 

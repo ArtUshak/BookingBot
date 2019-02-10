@@ -6,7 +6,6 @@ import logging
 import click
 
 import botsettings
-import booking
 import models
 
 

@@ -1,16 +1,10 @@
 # -*- coding: utf-8 -*-
 """Classes and functions to store bot data and manage it."""
-from abc import abstractmethod
-from dataclasses import asdict, dataclass
 from datetime import date, datetime, time, timedelta
-import json
 import logging
 from typing import List, Tuple, Optional
 
-import peewee
-
-from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
-                        BotBadInput, BotTimeOccupied, BotTimePassed,
+from exceptions import (BotNoAccess, BotTimeOccupied, BotTimePassed,
                         BotBookingNotFound, BotUsernameNotFound)
 import models
 

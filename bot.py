@@ -11,7 +11,7 @@ import telebot.types
 
 import booking
 import models
-from botsettings import (message_indev, message_operation_ok,
+from botsettings import (message_operation_ok,
                          message_bad_input, message_bad_date_format,
                          message_no_access, message_misc_error,
                          message_time_occupied, message_time_passed,
