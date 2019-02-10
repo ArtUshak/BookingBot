@@ -266,8 +266,8 @@ def bot_button_handler(
                     return
                 logger.info('Called button {} from user {}'.format(
                     name, sender.user_id))
-                exc: Optional[Exception] = None  # TODO: typing
-                result: Optional[Dict[str, Any]] = None
+                exc: Optional[Exception] = None
+                result: Optional[Dict[str, Any]] = None  # TODO: typing
                 result_ignore: Optional[Any] = None
                 result_message: Optional[Any] = None
                 result_markup: Optional[Any] = None
@@ -385,16 +385,17 @@ def process_cmd_help(
 
 
 # Taken from https://github.com/unmonoqueteclea/calendar-telegram
-def get_calendar(year, month):
+def get_calendar(year: int, month: int) -> telebot.types.InlineKeyboardMarkup:
     """
     Create inline keyboard for calendar and return it.
 
     Calendar will be created for `year` and `month`.
     """
+    # TODO
     markup = telebot.types.InlineKeyboardMarkup()
 
     # First row - Month and Year
-    row = []
+    row: List[telebot.types.InlineKeyboardButton] = []
     row.append(
         telebot.types.InlineKeyboardButton(
             calendar.month_name[month] + ' ' + str(year),
@@ -402,11 +403,13 @@ def get_calendar(year, month):
     markup.row(*row)
 
     # Second row - Week Days
-    week_days = list(map(lambda day_name: day_name[0], calendar.day_name))
+    week_days: List[str] = list(
+        map(lambda day_name: day_name[0], calendar.day_name)
+    )
     row = []
-    for day in week_days:
+    for week_day in week_days:
         row.append(telebot.types.InlineKeyboardButton(
-            day, callback_data='ignore'))
+            week_day, callback_data='ignore'))
     markup.row(*row)
 
     my_calendar = calendar.monthcalendar(year, month)

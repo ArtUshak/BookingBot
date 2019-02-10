@@ -17,7 +17,7 @@ import models
 
 logger = logging.getLogger('bot')
 
-minute_treshold = 15
+minute_treshold = 5
 
 
 def update_user_data(user_id: int, chat_id: int, username: str) -> models.User:
