@@ -296,12 +296,23 @@ def bot_button_handler(
                 if not result_ignore:
                     if ((result_edit_markup is not None)
                             or (result_edit_message is not None)):
-                        bot.edit_message_text(
-                            get_error_message(exc, if_ok=result_edit_message),
-                            call.from_user.id, call.message.message_id,
-                            reply_markup=result_edit_markup)
+                        try:
+                            bot.edit_message_text(
+                                get_error_message(
+                                    exc, if_ok=result_edit_message
+                                ),
+                                call.from_user.id, call.message.message_id,
+                                reply_markup=result_edit_markup
+                            )
+                        except telebot.apihelper.ApiException as api_exc:
+                            if api_exc.result.status_code not in [403]:
+                                raise
                     else:
                         try:
+                            bot.edit_message_reply_markup(
+                                call.from_user.id, call.message.message_id,
+                                reply_markup=None
+                            )
                             send_message(
                                 chat_id,
                                 get_error_message(exc, if_ok=result_message),
