@@ -55,8 +55,10 @@ message_book_3 = 'Введите описание события'
 message_unbook_1 = 'Введите время события в формате часы:минуты'
 
 contactlist_file: str = os.environ.get(
-    'CONTACTLIST_FILE', default='../BookingBot-data/contacts.txt'
+    'CONTACTLIST_FILE',
+    default=os.path.join('..', 'BookingBot-data', 'contacts.txt')
 )
+print(contactlist_file)
 help_file = 'help.txt'
 
 token = os.environ.get('TOKEN')

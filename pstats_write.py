@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 """Simple script to write profile data to human-readable file."""
+import os
 import pstats
 
 
-INPUT_FILE = '../BookingBot-data/profile-data.bin'
-OUTPUT_FILE = '../BookingBot-data/profile-data.txt'
+INPUT_FILE = os.environ.get(
+    'PROFILE_INPUT_FILE',
+    default=os.path.join('..', 'BookingBot-data', 'profile-data.bin')
+)
+OUTPUT_FILE = os.environ.get(
+    'PROFILE_OUTPUT_FILE',
+    default=os.path.join('..', 'BookingBot-data', 'profile-data.txt')
+)
 
 
 def main() -> None:
