@@ -902,6 +902,12 @@ def process_button_calendar_day(
             'markup': get_cmd_keyboard(),
         }
     elif sender.input_line_type == 'BOOK':
+        next_day_start = (
+            datetime.datetime.combine(input_date, datetime.time())
+            + datetime.timedelta(days=1)
+        )
+        if next_day_start < datetime.datetime.now():
+            raise BotTimePassed()
         sender.input_line_book.start_date = input_date
         sender.input_line_book.save()
         return {
@@ -909,7 +915,7 @@ def process_button_calendar_day(
             'markup': None,
         }
     elif sender.input_line_type == 'UNBOOK':
-        sender.input_line_unbook.start_date = input_date
+        sender.input_line_unbook.start_dae = input_date
         sender.input_line_unbook.save()
         return {
             'message': message_unbook_1,

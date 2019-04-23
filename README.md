@@ -21,6 +21,7 @@ Environment variable `TOKEN` should be set to token for Telegram API.
 ### Contact list file
 
 Environment variable `CONTACTLIST_FILE` should be set to name of contact list file, default value is `../BookingBot-data/contacts.txt`.
+
 This is text file, its content will be displayed to users who type `/contactlist` command.
 
 ### Proxy file
