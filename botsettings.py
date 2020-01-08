@@ -27,6 +27,7 @@ message_misc_error = 'Неизвестная ошибка.'
 message_time_occupied = 'Время занято.'
 message_time_passed = 'Время уже прошло.'
 message_booking_not_found = 'Событие не найдено.'
+message_date_empty = 'Нет событий на указанную дату.'
 message_username_not_found = ('Пользователь с таким именем не найден. Возможно'
                               ' он ещё не начал диалог с ботом.')
 
@@ -47,18 +48,17 @@ cmd_text_timetable_unbook = 'Отменить бронирование'
 cmd_text_contactlist = 'Контакты'
 cmd_text_help = 'Справка'
 
-message_prompt_date = 'Введите дату через календарь'
+message_prompt_date = 'Введите дату через календарь:'
 message_book_1 = 'Введите время начала события в формате часы:минуты'
 message_book_2 = ('Введите длительность события в формате часы:минуты или'
                   ' минуты')
-message_book_3 = 'Введите описание события'
-message_unbook_1 = 'Введите время события в формате часы:минуты'
+message_book_3 = 'Введите описание события:'
+message_unbook_1 = 'Выберите событие:'
 
 contactlist_file: str = os.environ.get(
     'CONTACTLIST_FILE',
     default=os.path.join('..', 'BookingBot-data', 'contacts.txt')
 )
-print(contactlist_file)
 help_file = 'help.txt'
 
 token = os.environ.get('TOKEN')

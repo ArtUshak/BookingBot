@@ -1,0 +1,11 @@
+{
+    "python.linting.banditEnabled": true,
+    "python.linting.pycodestylePath": "pycodestyle",
+    "python.linting.pycodestyleEnabled": true,
+    "python.linting.pydocstyleEnabled": true,
+    "python.linting.pylintCategorySeverity.convention": "Warning",
+    "python.linting.pylintCategorySeverity.refactor": "Information",
+    "python.linting.mypyEnabled": true,
+    "python.linting.flake8Enabled": true,
+    "python.pythonPath": ".venv/bin/python"
+}

@@ -169,6 +169,41 @@ def unbook(user: models.User, time_data: datetime,
     booking_item.delete_instance()
 
 
+def unbook_item(user: models.User, item: models.BookingItem,
+                force: bool = False) -> None:
+    """
+    Remove booking item.
+
+    If the parameter `force` is set to `True`, removing of past
+    bookings or other user's bookings is allowed (if user have right
+    permissions).
+
+    If user `user` do not have permissions to request this action,
+    it will not be performed and `BotNoAccess` will be raised.
+
+    If time has already passed and `force` parameter is set to
+    `False`, action will not be performed and `BotTimePassed` will be
+    raised.
+
+    If such booking is not found, action will not be performed and
+    `BotBookingNotFound` will be raised.
+    """
+    if not user.get_is_in_whitelist():
+        raise BotNoAccess()
+    if force:
+        if not user.get_is_admin():
+            raise BotNoAccess()
+
+    if not force:
+        if item.start_datetime <= datetime.now():
+            raise BotTimePassed()
+
+        if item.user != user:
+            raise BotNoAccess()
+
+    item.delete_instance()
+
+
 def get_timetable(user_id: int, start_time_data: datetime = None,
                   end_time_data: datetime = None) -> List[models.BookingItem]:
     """

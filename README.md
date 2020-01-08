@@ -86,7 +86,7 @@ Whitelist can be added to database from file using following command:
 python ./manage.py load-whitelist FILENAME
 ```
 
-Each line of file should contain either user ID of user, or comment, beggining with the # character.
+Each line of file should contain either user ID of user, or comment, begining with the # character.
 
 Example:
 
@@ -104,7 +104,7 @@ Administrators can be added from file using following command:
 python ./manage.py load-admins FILENAME
 ```
 
-Each line of file should contain either user ID of amdministrator, or comment, beggining with the # character.
+Each line of file should contain either user ID of amdministrator, or comment, begining with the # character.
 
 Example:
 

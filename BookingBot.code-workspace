@@ -6,15 +6,5 @@
 		{
 			"path": "../BookingBot-data"
 		}
-	],
-	"settings": {
-		"python.linting.banditEnabled": true,
-		"python.linting.pep8Path": "pycodestyle",
-		"python.linting.pep8Enabled": true,
-		"python.linting.pydocstyleEnabled": true,
-		"python.linting.pylintCategorySeverity.convention": "Warning",
-		"python.linting.pylintCategorySeverity.refactor": "Information",
-		"python.linting.mypyEnabled": true,
-		"python.linting.flake8Enabled": true
-	}
+	]
 }

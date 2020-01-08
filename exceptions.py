@@ -61,6 +61,12 @@ class BotBookingNotFound(BotCommandException):
     pass
 
 
+class BotDateEmpty(BotCommandException):
+    """Failed to find any booking items for given date."""
+
+    pass
+
+
 class BotUsernameNotFound(BotCommandException):
     """
     No user with username.

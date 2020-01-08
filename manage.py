@@ -97,8 +97,9 @@ def op_username(username):
             user.is_admin = True
             user.is_whitelisted = True
             user.save()
+            logger.info('Successfully opped user {}'.format(username))
         except models.User.DoesNotExist:
-            logger.info('User {} not found in database'.format(username))
+            logger.warning('User {} not found in database'.format(username))
 
 
 @click.command()
@@ -111,8 +112,9 @@ def deop_username(username):
             user = models.User.get(username=username)
             user.is_admin = False
             user.save()
+            logger.info('Successfully deopped user {}'.format(username))
         except models.User.DoesNotExist:
-            logger.info('User {} not found in database'.format(username))
+            logger.warning('User {} not found in database'.format(username))
 
 
 cli.add_command(load_admins)

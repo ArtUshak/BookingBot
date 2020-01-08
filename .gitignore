@@ -81,6 +81,7 @@ celerybeat-schedule
 # virtualenv
 venv/
 ENV/
+.venv/
 
 # Spyder project settings
 .spyderproject
@@ -90,6 +91,3 @@ ENV/
 
 # Mypy cache
 .mypy_cache/
-
-# VS Code configuration file with python path (other configuration settings should be set in workspace file)
-.vscode/settings.json

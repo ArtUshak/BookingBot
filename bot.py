@@ -15,6 +15,7 @@ from botsettings import (message_operation_ok,
                          message_bad_input, message_bad_date_format,
                          message_no_access, message_misc_error,
                          message_time_occupied, message_time_passed,
+                         message_date_empty,
                          message_booking_not_found, message_username_not_found,
                          message_timetable_header, message_timetable_date_row,
                          message_timetable_row, message_whitelist_header,
@@ -30,7 +31,7 @@ from botsettings import (message_operation_ok,
                          database_url, calendar_locale)
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
-                        BotBookingNotFound, BotUsernameNotFound)
+                        BotDateEmpty, BotBookingNotFound, BotUsernameNotFound)
 
 
 logger = logging.getLogger('bot')
@@ -78,7 +79,7 @@ if proxy_data is not None:
         proxy_data[0]: proxy_data[1]
     }
 
-bot: telebot.TeleBot = telebot.TeleBot(token)
+bot: telebot.TeleBot = telebot.TeleBot(token, num_threads=8)  # TODO
 
 logger.info('Bot instance created')
 
@@ -109,6 +110,8 @@ def get_error_message(exception, if_ok: Optional[str] = None) -> str:
         return message_booking_not_found
     elif isinstance(exception, BotUsernameNotFound):
         return message_username_not_found
+    elif isinstance(exception, BotDateEmpty):
+        return message_date_empty
     else:
         return message_misc_error
 
@@ -396,7 +399,9 @@ def process_cmd_help(
 
 
 # Taken from https://github.com/unmonoqueteclea/calendar-telegram
-def get_calendar(year: int, month: int) -> telebot.types.InlineKeyboardMarkup:
+def get_calendar_keyboard(
+    year: int, month: int
+) -> telebot.types.InlineKeyboardMarkup:
     """
     Create inline keyboard for calendar and return it.
 
@@ -453,6 +458,33 @@ def get_calendar(year: int, month: int) -> telebot.types.InlineKeyboardMarkup:
     return markup
 
 
+def get_date_booking_selection_keyboard(
+    date: datetime.date
+) -> telebot.types.InlineKeyboardMarkup:
+    """
+    Create inline keyboard to select booking item in date and return it.
+
+    If there are no items for that day, return `None`.
+    """
+    keyboard: telebot.types.InlineKeyboardMarkup = \
+        telebot.types.InlineKeyboardMarkup()
+    booking_items = models.BookingItem.select().where(
+        (models.BookingItem.start_datetime < (date + datetime.timedelta(1)))
+        & (models.BookingItem.end_datetime >= date)
+    )
+    if not booking_items:
+        return None
+    for booking_item in booking_items:
+        keyboard.add(telebot.types.InlineKeyboardButton(
+            text='{}-{} {}'.format(
+                booking_item.start_datetime, booking_item.end_datetime,
+                booking_item.description
+            ),
+            callback_data='booking_item:{}'.format(booking_item.get_id())
+        ))
+    return keyboard
+
+
 def get_cmd_keyboard() -> telebot.types.InlineKeyboardMarkup:
     """Create inline keyboard for bot functions and return it."""
     keyboard = telebot.types.InlineKeyboardMarkup()
@@ -502,8 +534,8 @@ def process_button_book(
     sender.start_input_line_book()
     return {
         'message': message_prompt_date,
-        'markup': get_calendar(sender.input_calendar.year,
-                               sender.input_calendar.month),
+        'markup': get_calendar_keyboard(sender.input_calendar.year,
+                                        sender.input_calendar.month),
     }
 
 
@@ -556,8 +588,8 @@ def process_button_unbook(
     sender.start_input_line_unbook()
     return {
         'message': message_prompt_date,
-        'markup': get_calendar(sender.input_calendar.year,
-                               sender.input_calendar.month),
+        'markup': get_calendar_keyboard(sender.input_calendar.year,
+                                        sender.input_calendar.month),
     }
 
 
@@ -668,8 +700,8 @@ def process_button_timetable_date(
     sender.start_input_line_timetable_date()
     return {
         'message': message_prompt_date,
-        'markup': get_calendar(sender.input_calendar.year,
-                               sender.input_calendar.month),
+        'markup': get_calendar_keyboard(sender.input_calendar.year,
+                                        sender.input_calendar.month),
     }
 
 
@@ -816,8 +848,8 @@ def process_button_next_month(
     sender.input_calendar.next_month()
     return {
         'edit_message': message_prompt_date,
-        'edit_markup': get_calendar(sender.input_calendar.year,
-                                    sender.input_calendar.month),
+        'edit_markup': get_calendar_keyboard(sender.input_calendar.year,
+                                             sender.input_calendar.month),
     }
 
 
@@ -837,8 +869,8 @@ def process_button_previous_month(
     if sender.input_calendar.previous_month():
         return {
             'edit_message': message_prompt_date,
-            'edit_markup': get_calendar(sender.input_calendar.year,
-                                        sender.input_calendar.month),
+            'edit_markup': get_calendar_keyboard(sender.input_calendar.year,
+                                                 sender.input_calendar.month),
         }
     else:
         return {
@@ -915,14 +947,51 @@ def process_button_calendar_day(
             'markup': None,
         }
     elif sender.input_line_type == 'UNBOOK':
-        sender.input_line_unbook.start_dae = input_date
+        sender.input_line_unbook.start_date = input_date
+        markup = get_date_booking_selection_keyboard(
+            input_date
+        )
+        if markup is None:
+            raise BotDateEmpty()
+        sender.input_line_unbook.start_date = input_date
         sender.input_line_unbook.save()
         return {
             'message': message_unbook_1,
-            'markup': None,
+            'markup': markup,
         }
 
     return None
+
+
+@bot.callback_query_handler(
+    func=lambda call: call.data.startswith('booking_item:'))
+@bot_button_handler('booking_item')
+def process_button_booking_item(
+    call: telebot.types.CallbackQuery, sender: models.User
+) -> Optional[Dict[str, Any]]:
+    """
+    Button `booking_item:<ID>`.
+
+    Process calendar input of selecting booking item `<ID>`.
+    """
+    if not sender.input_calendar:
+        return None
+
+    regex_match = re.match(r'booking_item:([0-9]+)', call.data)
+
+    if regex_match is None:
+        raise BotBadInput()
+    booking_item_id = int(regex_match.group(1))
+    booking_item = models.BookingItem.get_by_id(booking_item_id)
+
+    if sender.input_line_type == 'UNBOOK':
+        booking.unbook_item(sender, booking_item)
+        sender.clear_input_line()
+
+    return {
+        'message': message_operation_ok,
+        'markup': get_cmd_keyboard(),
+    }
 
 
 @bot.message_handler()
@@ -941,7 +1010,7 @@ def process_text(message: telebot.types.Message) -> None:
             raise BotBadInput()
         if sender.input_line_type == 'BOOK':
             if sender.input_line_book.start_date is None:
-                raise ValueError()
+                raise BotBadInput()
             elif sender.input_line_book.start_time is None:
                 try:
                     input_time = booking.process_time(message.text)
@@ -976,7 +1045,7 @@ def process_text(message: telebot.types.Message) -> None:
             except ValueError:
                 raise BotBadInput()
             if sender.input_line_unbook.start_date is None:
-                raise ValueError()
+                raise BotBadInput()
             else:
                 date = datetime.datetime.combine(
                     sender.input_line_unbook.start_date,

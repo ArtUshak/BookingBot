@@ -4,31 +4,37 @@
         {
             "label": "update",
             "type": "shell",
-            "command": "source ./.env && pipenv update --dev",
+            "command": "poetry update",
+            "problemMatcher": []
+        },
+        {
+            "label": "update1",
+            "type": "shell",
+            "command": "poetry lock && poetry install -E postgres",
             "problemMatcher": []
         },
         {
             "label": "run",
             "type": "shell",
-            "command": "source ./.env && pipenv run python ./bot.py",
+            "command": "source ./.env && poetry run python ./bot.py",
             "problemMatcher": []
         },
         {
             "label": "profile",
             "type": "shell",
-            "command": "source ./.env && pipenv run python -m cProfile -o ../BookingBot-data/profile-data.bin ./bot.py && pipenv run python ./pstats_write.py",
+            "command": "source ./.env && poetry run python -m cProfile -o ../BookingBot-data/profile-data.bin ./bot.py && poetry run python ./pstats_write.py",
             "problemMatcher": []
         },
         {
             "label": "load-admins",
             "type": "shell",
-            "command": "source ./.env && pipenv run python ./manage.py load-admins ../BookingBot-data/admins.txt",
+            "command": "source ./.env && poetry run python ./manage.py load-admins ../BookingBot-data/admins.txt",
             "problemMatcher": []
         },
         {
             "label": "load-whitelist",
             "type": "shell",
-            "command": "source ./.env && pipenv run python ./manage.py load-whitelist ../BookingBot-data/whitelist.txt",
+            "command": "source ./.env && poetry run python ./manage.py load-whitelist ../BookingBot-data/whitelist.txt",
             "problemMatcher": []
         }
     ]
