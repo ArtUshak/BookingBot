@@ -28,7 +28,7 @@ from botsettings import (message_operation_ok,
                          message_book_1, message_book_2, message_book_3,
                          message_unbook_1,
                          contactlist_file, help_file, token, proxy_data,
-                         database_url, calendar_locale)
+                         database_url, calendar_locale, thread_number)
 from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
                         BotBadInput, BotTimeOccupied, BotTimePassed,
                         BotDateEmpty, BotBookingNotFound, BotUsernameNotFound)
@@ -79,7 +79,7 @@ if proxy_data is not None:
         proxy_data[0]: proxy_data[1]
     }
 
-bot: telebot.TeleBot = telebot.TeleBot(token, num_threads=8)  # TODO
+bot: telebot.TeleBot = telebot.TeleBot(token, num_threads=thread_number)
 
 logger.info('Bot instance created')
 

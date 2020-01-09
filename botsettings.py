@@ -68,7 +68,7 @@ proxy_data: Optional[List[str]] = None
 if (proxy_str is not None) and (proxy_str != 'none'):
     proxy_data = proxy_str.split()[:2]
 
-database_url = os.environ.get(
+database_url: str = os.environ.get(
     'DATABASE_URL', default='sqlite:/../BookingBot-data/data.db'
 )
 
@@ -77,3 +77,8 @@ calendar_locale: Optional[Tuple[Optional[str], Optional[str]]] = None
 if calendar_locale_str is not None:
     calendar_locale_tokens: List[str] = calendar_locale_str.split('.')
     calendar_locale = (calendar_locale_tokens[0], calendar_locale_tokens[1])
+
+thread_number_str: Optional[str] = os.environ.get('THREAD_NUMBER')
+thread_number: int = 2
+if thread_number_str is not None:
+    thread_number = int(thread_number_str)
