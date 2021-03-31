@@ -74,6 +74,16 @@ Example:
 export BOT_CALENDAR_LOCALE=ru_RU.UTF-8
 ```
 
+### Thread count
+
+Environment variable `THREAD_NUMBER` should be set to thread count for bot, default value is `2`.
+
+Example:
+
+```sh
+export THREAD_NUMBER=8
+```
+
 ## Management
 
 Management script is named `manage.py`.
