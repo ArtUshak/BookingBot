@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Simple script to write profile data to human-readable file."""
 import os
 import pstats
-
 
 INPUT_FILE = os.environ.get(
     'PROFILE_INPUT_FILE',

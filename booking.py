@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 """Classes and functions to store bot data and manage it."""
-from datetime import date, datetime, time, timedelta
 import logging
-from typing import List, Tuple, Optional
+from datetime import date, datetime, time, timedelta
+from typing import List, Optional, Tuple
 
-from exceptions import (BotNoAccess, BotTimeOccupied, BotTimePassed,
-                        BotBookingNotFound, BotUsernameNotFound)
 import models
-
+from exceptions import (BotBookingNotFound, BotNoAccess, BotTimeOccupied,
+                        BotTimePassed, BotUsernameNotFound)
 
 logger = logging.getLogger('bot')
 
@@ -28,9 +27,8 @@ def update_user_data(user_id: int, chat_id: int, username: str) -> models.User:
         user.save()
         return user
     except models.User.DoesNotExist:
-        user = models.User.create(
+        return models.User.create(
             user_id=user_id, chat_id=chat_id, username=username)
-        return user
 
 
 def get_user(user_id: int) -> Optional[models.User]:

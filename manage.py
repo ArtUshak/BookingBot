@@ -8,7 +8,6 @@ import click
 import botsettings
 import models
 
-
 logging.basicConfig(format='%(message)s')
 
 logger = logging.getLogger('management')

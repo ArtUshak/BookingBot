@@ -2,8 +2,7 @@
 """Settings for bot."""
 import logging
 import os
-from typing import Optional, List, Tuple
-
+from typing import List, Optional, Tuple
 
 log_file: str = os.environ.get('BOT_LOG', default='../BookingBot-data/log.log')
 

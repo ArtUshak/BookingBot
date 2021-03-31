@@ -1,38 +1,36 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Telegram bot for booking auditorium (see `README.md`)."""
 import calendar
 import datetime
 import logging
 import re
-from typing import List, Optional, Dict, Callable, Any, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import telebot
 import telebot.types
 
 import booking
 import models
-from botsettings import (message_operation_ok,
-                         message_bad_input, message_bad_date_format,
-                         message_no_access, message_misc_error,
+from botsettings import (calendar_locale, cmd_text_contactlist, cmd_text_help,
+                         cmd_text_timetable, cmd_text_timetable_book,
+                         cmd_text_timetable_date, cmd_text_timetable_today,
+                         cmd_text_timetable_unbook, contactlist_file,
+                         database_url, help_file, message_bad_date_format,
+                         message_bad_input, message_book_1, message_book_2,
+                         message_book_3, message_booking_not_found,
+                         message_date_empty, message_input_date,
+                         message_misc_error, message_no_access,
+                         message_operation_ok, message_prompt_date,
                          message_time_occupied, message_time_passed,
-                         message_date_empty,
-                         message_booking_not_found, message_username_not_found,
-                         message_timetable_header, message_timetable_date_row,
-                         message_timetable_row, message_whitelist_header,
-                         message_whitelist_row, message_input_date,
-                         cmd_text_timetable, cmd_text_timetable_today,
-                         cmd_text_timetable_date,
-                         cmd_text_timetable_book, cmd_text_timetable_unbook,
-                         cmd_text_contactlist, cmd_text_help,
-                         message_prompt_date,
-                         message_book_1, message_book_2, message_book_3,
-                         message_unbook_1,
-                         contactlist_file, help_file, token, proxy_data,
-                         database_url, calendar_locale, thread_number)
-from exceptions import (BotCommandException, BotBadDateFormat, BotNoAccess,
-                        BotBadInput, BotTimeOccupied, BotTimePassed,
-                        BotDateEmpty, BotBookingNotFound, BotUsernameNotFound)
-
+                         message_timetable_date_row, message_timetable_header,
+                         message_timetable_row, message_unbook_1,
+                         message_username_not_found, message_whitelist_header,
+                         message_whitelist_row, proxy_data, thread_number,
+                         token)
+from exceptions import (BotBadDateFormat, BotBadInput, BotBookingNotFound,
+                        BotCommandException, BotDateEmpty, BotNoAccess,
+                        BotTimeOccupied, BotTimePassed, BotUsernameNotFound)
 
 logger = logging.getLogger('bot')
 
@@ -158,7 +156,7 @@ def split_message(message: str, max_length: int) -> List[str]:
         if split_position < 0:
             split_position = max_length
         result.append(message[:split_position])
-        message = message[split_position+1:]
+        message = message[split_position + 1:]
     if len(message) > 0:
         result.append(message)
     return result

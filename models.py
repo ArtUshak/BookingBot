@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ORM models for bot data."""
-from datetime import date
 import logging
+from datetime import date
 from typing import List
 
 import peewee
